@@ -1,6 +1,7 @@
 from sklearn.model_selection import cross_val_predict
 from statistics import mode
 import numpy as np
+import warnings
 
 class MetaLearningModel(object):
 
@@ -33,17 +34,22 @@ class MetaLearningModel(object):
     def fit(self, X, y, n_folds):
 
         X_meta_models, y_meta_models = self.__cross_validation(X, y, n_folds=10)
+
+        y_meta_models = self.__check_targets(y_meta_models)
+
         self.fit_both_levels((X, y), (X_meta_models, y_meta_models))
 
     def predict(self, X):
 
         predictions = []
         for x in X:
-            selected_base_models = self.__predict_meta_models([x])
+
+            selected_base_models = self.__predict_meta_models(x)
+
             if not np.any(selected_base_models):
-                selected_base_models[0] = 1
-            # print(self.__predict_base_models([x], selected_base_models))
-            final_prediction = self.__combiner(self.__predict_base_models([x], selected_base_models))
+                selected_base_models[:] = 1
+            
+            final_prediction = self.__combiner(self.__predict_base_models(x, selected_base_models))
             predictions.append(final_prediction)
 
         return predictions
@@ -61,12 +67,13 @@ class MetaLearningModel(object):
         for base_model in self.base_models:
             base_model.fit(X, y)
 
-    def __predict_base_models(self, X, selected_base_models):
+    def __predict_base_models(self, x, selected_base_models):
 
         predictions = []
         for idx, base_model in enumerate(self.base_models):
+            
             if selected_base_models[idx] == 1:
-                predictions.append(base_model.predict(X).ravel()[0])
+                predictions.append(base_model.predict([x]).ravel()[0])
 
         return predictions
 
@@ -75,13 +82,13 @@ class MetaLearningModel(object):
         for idx, meta_model in enumerate(self.meta_models):
             meta_model.fit(X, y[:, idx])
 
-    def __predict_meta_models(self, X):
+    def __predict_meta_models(self, x):
 
-        predictions = np.zeros((len(X), len(self.meta_models)))
+        predictions = np.zeros(len(self.meta_models))
         for idx, meta_model in enumerate(self.meta_models):
-            predictions[:, idx] = meta_model.predict(X)
+            predictions[idx] = meta_model.predict([x])
 
-        return predictions.ravel().tolist()
+        return predictions
 
     def __cross_validation(self, X, y, n_folds):
 
@@ -99,12 +106,10 @@ class MetaLearningModel(object):
 
         else:
             y_target_meta_models = np.zeros((y.shape[0], len(self.base_models)))
-            # classes = base_model.classes_.tolist()
             for idx, base_model in enumerate(self.base_models):
                 y_target_meta_models[:, idx] = base_models_predictions[idx][[i for i in range(base_models_predictions[idx].shape[0])], y.tolist()]
 
             return X, np.argmax(y_target_meta_models, axis=1)
-
 
     def __adapt_method(self):
 
@@ -113,5 +118,21 @@ class MetaLearningModel(object):
         else:
             return 'predict_proba'
 
-    def __combiner(self, labels):
-        return mode(labels)
+    def __combiner(self, targets):
+        
+        if self.task == 'classification':
+            return mode(targets)
+        else:
+            return np.mean(targets)
+
+    def __check_targets(self, y_meta_models):
+
+        sum_up = np.sum(y_meta_models, axis=0)
+
+        for i in range(sum_up.shape[0]):
+
+            if sum_up[i] == 0:
+                self.base_models.remove(self.base_models[i])
+                self.meta_models.remove(self.meta_models[i])
+
+        return y_meta_models[:, sum_up != 0]
