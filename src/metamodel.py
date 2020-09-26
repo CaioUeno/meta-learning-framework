@@ -3,13 +3,21 @@ from sklearn.preprocessing import LabelBinarizer
 from statistics import mode
 import numpy as np
 import warnings
+from utils import mean_absolute_error, minimum_error
 
 class MetaLearningModel(object):
 
-    def __init__(self, meta_model, base_models, task, mode, error_measure, chooser):
+    def __init__(self, meta_model, base_models, task, mode, n_possible_values, error_measure=mean_absolute_error, chooser=minimum_error):
 
-        if self.check_args(meta_model, base_models, task, mode):
-            self.meta_models = [meta_model for _ in range(len(base_models))]
+        if self.check_args(meta_model, base_models, task, mode, error_measure, chooser):
+
+            if n_possible_values == 1:
+                self.meta_models = meta_model
+                self.n_meta_models = 1
+            else:
+                self.meta_models = [meta_model for _ in range(len(base_models))]
+                self.n_meta_models = len(base_models)
+            
             self.base_models = base_models
             self.task = task
             self.mode = mode
@@ -17,7 +25,7 @@ class MetaLearningModel(object):
             self.chooser = chooser
             
 
-    def check_args(self, meta_model, base_models, task, mode):
+    def check_args(self, meta_model, base_models, task, mode, error_measure, chooser):
 
         if task not in ['classification', 'regression']:
             raise ValueError('Must choose a task: classification or regression.')
@@ -109,9 +117,12 @@ class MetaLearningModel(object):
             return X, y_target_meta_models
 
         elif self.task == 'classification' and self.mode == 'score':
+
+            lb = LabelBinarizer()
+    
             y_target_meta_models = np.zeros((y.shape[0], len(self.base_models)))
             for idx, base_model in enumerate(self.base_models):
-                y_target_meta_models[:, idx] = self.error_measure(base_models_predictions[idx], y)
+                y_target_meta_models[:, idx] = self.error_measure(base_models_predictions[idx], lb.fit_transform(y))
 
             return X, self.__chooser(y_target_meta_models)
 
@@ -139,12 +150,13 @@ class MetaLearningModel(object):
     def __check_targets(self, y_meta_models):
 
         sum_up = np.sum(y_meta_models, axis=0)
-
+        print(sum_up)
         for i in range(sum_up.shape[0]):
 
             if sum_up[i] == 0:
                 self.base_models.remove(self.base_models[i])
                 self.meta_models.remove(self.meta_models[i])
+                self.n_meta_models -= 1
 
         return y_meta_models[:, sum_up != 0]
 
