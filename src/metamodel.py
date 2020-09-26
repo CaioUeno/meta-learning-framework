@@ -1,17 +1,21 @@
 from sklearn.model_selection import cross_val_predict
+from sklearn.preprocessing import LabelBinarizer
 from statistics import mode
 import numpy as np
 import warnings
 
 class MetaLearningModel(object):
 
-    def __init__(self, meta_model, base_models, task, mode):
+    def __init__(self, meta_model, base_models, task, mode, error_measure, chooser):
 
         if self.check_args(meta_model, base_models, task, mode):
             self.meta_models = [meta_model for _ in range(len(base_models))]
             self.base_models = base_models
             self.task = task
             self.mode = mode
+            self.error_measure = error_measure
+            self.chooser = chooser
+            
 
     def check_args(self, meta_model, base_models, task, mode):
 
@@ -104,12 +108,19 @@ class MetaLearningModel(object):
 
             return X, y_target_meta_models
 
-        else:
+        elif self.task == 'classification' and self.mode == 'score':
             y_target_meta_models = np.zeros((y.shape[0], len(self.base_models)))
             for idx, base_model in enumerate(self.base_models):
-                y_target_meta_models[:, idx] = base_models_predictions[idx][[i for i in range(base_models_predictions[idx].shape[0])], y.tolist()]
+                y_target_meta_models[:, idx] = self.error_measure(base_models_predictions[idx], y)
 
-            return X, np.argmax(y_target_meta_models, axis=1)
+            return X, self.__chooser(y_target_meta_models)
+
+        else:
+            y_target_meta_models = np.zeros((base_models_predictions[0].shape[0], len(self.base_models)))
+            for idx, base_model in enumerate(self.base_models):
+                y_target_meta_models[:, idx] = self.error_measure(base_models_predictions[idx], y[-y_target_meta_models.shape[0]:])
+
+            return X[-y_target_meta_models.shape[0]:],  self.__chooser(y_target_meta_models)
 
     def __adapt_method(self):
 
@@ -136,3 +147,11 @@ class MetaLearningModel(object):
                 self.meta_models.remove(self.meta_models[i])
 
         return y_meta_models[:, sum_up != 0]
+
+    def __chooser(self, y_target_meta_models):
+
+        new_y_target_meta_models = []
+        for i in range(y_target_meta_models.shape[0]):
+            new_y_target_meta_models.append(self.chooser(y_target_meta_models[i]))
+
+        return np.array(new_y_target_meta_models)
