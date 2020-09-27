@@ -91,14 +91,23 @@ class MetaLearningModel(object):
 
     def __fit_meta_models(self, X, y):
 
-        for idx, meta_model in enumerate(self.meta_models):
-            meta_model.fit(X, y[:, idx])
+        if self.n_meta_models == 1:
+            self.meta_models.fit(X, np.argmax(y, axis=1))
+
+        else:
+            for idx, meta_model in enumerate(self.meta_models):
+                meta_model.fit(X, y[:, idx])
 
     def __predict_meta_models(self, x):
 
-        predictions = np.zeros(len(self.meta_models))
-        for idx, meta_model in enumerate(self.meta_models):
-            predictions[idx] = meta_model.predict([x])
+        if self.n_meta_models == 1:
+            predictions = np.zeros(len(self.base_models))
+            predictions[self.meta_models.predict([x])] = 1
+
+        else:
+            predictions = np.zeros(len(self.meta_models))
+            for idx, meta_model in enumerate(self.meta_models):
+                predictions[idx] = meta_model.predict([x])
 
         return predictions
 
@@ -150,7 +159,6 @@ class MetaLearningModel(object):
     def __check_targets(self, y_meta_models):
 
         sum_up = np.sum(y_meta_models, axis=0)
-        print(sum_up)
         for i in range(sum_up.shape[0]):
 
             if sum_up[i] == 0:
