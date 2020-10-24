@@ -45,6 +45,11 @@ class MetaLearningModel(object):
 
     def fit(self, X, y, n_folds=10):
 
+        '''
+            First, it creates meta model's tranning set using a cross-validation method.
+            Then, after targets are checked, it trains both levels - base models and meta models.
+        '''
+
         X_meta_models, y_meta_models = self.__cross_validation(X, y, n_folds=n_folds)
 
         y_meta_models = self.__check_targets(y_meta_models)
@@ -54,7 +59,10 @@ class MetaLearningModel(object):
     def predict(self, X):
 
         '''
-             
+             The meta model predicts for each instance which base models are going to be selected.
+             Then, it combines selected base models' predictions.
+
+             Returns a label for each istance, using a combiner function.
         '''
 
         predictions = []
@@ -62,7 +70,7 @@ class MetaLearningModel(object):
 
             selected_base_models = self.__predict_meta_models(x)
 
-            if not np.any(selected_base_models): # if none base model were selected, then select all of them (bagging method)
+            if not np.any(selected_base_models): # if none base model was selected, then select all of them (bagging method)
                 selected_base_models[:] = 1
             
             final_prediction = self.__combiner(self.__predict_base_models(x, selected_base_models))
@@ -128,10 +136,10 @@ class MetaLearningModel(object):
         '''
             Cross-validation for each base model given a n_folds. It has three possible flows:
 
-            1) binary mode: Only for classification task. It checks if the base model labels correctly or not
+            1) binary mode: Only for classification task. It checks if the base models labeled correctly or not
             every instance. It is actually creating a trainning set for the meta model. 
             
-            2) classfication score mode:
+            2) classification score mode:
 
             3) regression (only works with score mode):
 
@@ -146,7 +154,7 @@ class MetaLearningModel(object):
 
             y_target_meta_models = np.zeros((y.shape[0], len(self.base_models)))
             for idx, base_model in enumerate(self.base_models):
-                y_target_meta_models[:, idx] = (base_models_predictions[idx] == y).astype(int)
+                y_target_meta_models[:, idx] = (base_models_predictions[idx] == y).astype(int) 
 
             return X, y_target_meta_models
 
@@ -184,11 +192,11 @@ class MetaLearningModel(object):
     def __check_targets(self, y_meta_models):
 
         '''
-            It checks if there is any base model that were not selected for any instance.
+            It checks if there is any base model that was not selected for any instance.
             Those base models can be removed, because they are not going to be useful on prediction.
             Also their respective meta models must be removed.
 
-            returns treated y_meta_models.
+            Returns treated y_meta_models.
         '''
         
         # sum over rows to return how many times each base model were selected
