@@ -7,17 +7,11 @@ from utils import mean_absolute_error, minimum_error
 
 class MetaLearningModel(object):
 
-    def __init__(self, meta_model, base_models, task: str, mode: str, n_possible_values, error_measure=mean_absolute_error, chooser=minimum_error):
+    def __init__(self, meta_model, base_models, task: str, mode: str, error_measure=mean_absolute_error, chooser=minimum_error):
 
         if self.check_args(meta_model, base_models, task, mode, error_measure, chooser):
 
-            if n_possible_values == 1:
-                self.meta_models = meta_model
-                self.n_meta_models = 1
-            else:
-                self.meta_models = [meta_model for _ in range(len(base_models))]
-                self.n_meta_models = len(base_models)
-            
+            self.meta_models = meta_model
             self.base_models = base_models
             self.task = task
             self.mode = mode
@@ -194,7 +188,11 @@ class MetaLearningModel(object):
         '''
             It checks if there is any base model that was not selected for any instance.
             Those base models can be removed, because they are not going to be useful on prediction.
-            Also their respective meta models must be removed.
+            
+
+            Also, this function infers if the meta model task will be a multi-label or not 
+            (If more than one base model were selected for any instance then it will be a multi-label task).
+            The previous check ensure that this can be done.
 
             Returns treated y_meta_models.
         '''
@@ -206,10 +204,19 @@ class MetaLearningModel(object):
 
             if sum_up[i] == 0: # base model at index i were never selected
                 self.base_models.remove(self.base_models[i])
-                self.meta_models.remove(self.meta_models[i])
-                self.n_meta_models -= 1 # correcting the number of meta models
 
-        return y_meta_models[:, sum_up != 0]
+
+        treated_y_meta_models = y_meta_models[:, sum_up != 0]
+        
+        # check if there is any instance that has more than one base model assigned to it.
+        if np.any(np.sum(treated_y_meta_models, axis=0) > 1):
+            self.meta_models = [self.meta_models for _ in range(len(self.base_models))]
+            self.n_meta_models = len(self.base_models)
+
+        else:
+            self.n_meta_models = 1
+
+        return treated_y_meta_models
 
     def __chooser(self, y_target_meta_models):
 

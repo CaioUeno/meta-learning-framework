@@ -16,4 +16,4 @@ def mean_absolute_error(preds: np.array, targets: np.array) -> np.array:
     Returns an array with shape (num_instances, 1).
     '''
     
-    return abs(preds - targets)
+    return np.mean(abs(preds - targets), axis=1)
