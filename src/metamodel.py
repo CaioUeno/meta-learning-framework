@@ -7,7 +7,7 @@ from utils import mean_absolute_error, minimum_error
 
 class MetaLearningModel(object):
 
-    def __init__(self, meta_model, base_models, task, mode, n_possible_values, error_measure=mean_absolute_error, chooser=minimum_error):
+    def __init__(self, meta_model, base_models, task: str, mode: str, n_possible_values, error_measure=mean_absolute_error, chooser=minimum_error):
 
         if self.check_args(meta_model, base_models, task, mode, error_measure, chooser):
 
@@ -25,7 +25,7 @@ class MetaLearningModel(object):
             self.chooser = chooser
             
 
-    def check_args(self, meta_model, base_models, task, mode, error_measure, chooser):
+    def check_args(self, meta_model, base_models, task: str, mode: str, error_measure, chooser):
 
         if task not in ['classification', 'regression']:
             raise ValueError('Must choose a task: classification or regression.')
