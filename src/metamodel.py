@@ -7,7 +7,7 @@ from utils import mean_absolute_error, minimum_error
 
 class MetaLearningModel(object):
 
-    def __init__(self, meta_model, base_models, task: str, mode: str, error_measure=mean_absolute_error, chooser=minimum_error):
+    def __init__(self, meta_model, base_models: list, task: str, mode: str, error_measure=mean_absolute_error, chooser=minimum_error):
 
         if self.check_args(meta_model, base_models, task, mode, error_measure, chooser):
 
@@ -19,7 +19,7 @@ class MetaLearningModel(object):
             self.chooser = chooser
             
 
-    def check_args(self, meta_model, base_models, task: str, mode: str, error_measure, chooser):
+    def check_args(self, meta_model, base_models: list, task: str, mode: str, error_measure: '<function>', chooser: '<function>'):
 
         if task not in ['classification', 'regression']:
             raise ValueError('Must choose a task: classification or regression.')
@@ -209,7 +209,7 @@ class MetaLearningModel(object):
         treated_y_meta_models = y_meta_models[:, sum_up != 0]
         
         # check if there is any instance that has more than one base model assigned to it.
-        if np.any(np.sum(treated_y_meta_models, axis=0) > 1):
+        if np.any(np.sum(treated_y_meta_models, axis=1) > 1):
             self.meta_models = [self.meta_models for _ in range(len(self.base_models))]
             self.n_meta_models = len(self.base_models)
 

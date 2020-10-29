@@ -11,3 +11,4 @@ model = MetaLearningModel(DecisionTreeClassifier(), [KNeighborsClassifier(n_neig
 
 model.fit(X, y, 10)
 print(model.predict(X))
+print(model.n_meta_models)
