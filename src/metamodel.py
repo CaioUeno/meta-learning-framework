@@ -32,8 +32,12 @@ class MetaLearningModel(object):
             raise TypeError('meta_model must have method fit(X, y) and predict(X).')
 
         for base_model in base_models:
+            
             if 'fit' not in dir(base_model) or 'predict' not in dir(base_model):
                 raise TypeError('base models must have method fit(X, y) and predict(X).')
+
+            if task == 'classification' and mode == 'score' and 'predict_proba' not in dir(base_model):
+                raise TypeError('If classification task and score mode then base models must have method predict_proba(X).')
 
         return True
 
@@ -41,14 +45,14 @@ class MetaLearningModel(object):
 
         '''
             First, it creates meta model's tranning set using a cross-validation method.
-            Then, after targets are checked, it trains both levels - base models and meta models.
+            Then, after targets are checked, it trains both levels - base models and meta model(s).
         '''
 
         X_meta_models, y_meta_models = self.__cross_validation(X, y, n_folds=n_folds)
 
         y_meta_models = self.__check_targets(y_meta_models)
 
-        self.fit_both_levels((X, y), (X_meta_models, y_meta_models))
+        self.__fit_both_levels((X, y), (X_meta_models, y_meta_models))
 
     def predict(self, X):
 
@@ -59,8 +63,8 @@ class MetaLearningModel(object):
              Returns a label for each istance, using a combiner function.
         '''
 
-        predictions = []
-        for x in X:
+        predictions = np.zeros(len(X))
+        for idx, x in enumerate(X):
 
             selected_base_models = self.__predict_meta_models(x)
 
@@ -68,11 +72,11 @@ class MetaLearningModel(object):
                 selected_base_models[:] = 1
             
             final_prediction = self.__combiner(self.__predict_base_models(x, selected_base_models))
-            predictions.append(final_prediction)
+            predictions[idx] = final_prediction
 
         return predictions
 
-    def fit_both_levels(self, X_y_base_models, X_y_meta_models):
+    def __fit_both_levels(self, X_y_base_models, X_y_meta_models):
 
         '''
             It fits base models and meta models. 
@@ -105,10 +109,10 @@ class MetaLearningModel(object):
 
     def __fit_meta_models(self, X, y):
 
-        if self.n_meta_models == 1:
+        if self.n_meta_models == 1: # if for each instance there is only one possible class - base model chosen
             self.meta_models.fit(X, np.argmax(y, axis=1))
 
-        else:
+        else: # if it is a multi-label classification task
             for idx, meta_model in enumerate(self.meta_models):
                 meta_model.fit(X, y[:, idx])
 
@@ -140,15 +144,15 @@ class MetaLearningModel(object):
             returns X (same as input) and y target for meta model.
         '''
 
-        base_models_predictions = {}
+        self.base_models_predictions = {}
         for idx, base_model in enumerate(self.base_models):
-            base_models_predictions[idx] = cross_val_predict(base_model, X, y, cv=n_folds, method=self.__adapt_method())
+            self.base_models_predictions[idx] = cross_val_predict(base_model, X, y, cv=n_folds, method=self.__adapt_method())
 
         if self.mode == 'binary':
 
             y_target_meta_models = np.zeros((y.shape[0], len(self.base_models)))
             for idx, base_model in enumerate(self.base_models):
-                y_target_meta_models[:, idx] = (base_models_predictions[idx] == y).astype(int) 
+                y_target_meta_models[:, idx] = (self.base_models_predictions[idx] == y).astype(int) 
 
             return X, y_target_meta_models
 
@@ -156,18 +160,18 @@ class MetaLearningModel(object):
 
             lb = LabelBinarizer()
     
-            y_target_meta_models = np.zeros((y.shape[0], len(self.base_models)))
+            y_error_meta_models = np.zeros((y.shape[0], len(self.base_models)))
             for idx, base_model in enumerate(self.base_models):
-                y_target_meta_models[:, idx] = self.error_measure(base_models_predictions[idx], lb.fit_transform(y))
+                y_error_meta_models[:, idx] = self.error_measure(self.base_models_predictions[idx], lb.fit_transform(y))
 
-            return X, self.__chooser(y_target_meta_models)
+            return X, self.__chooser(y_error_meta_models)
 
         else:
-            y_target_meta_models = np.zeros((base_models_predictions[0].shape[0], len(self.base_models)))
+            y_error_meta_models = np.zeros((self.base_models_predictions[0].shape[0], len(self.base_models)))
             for idx, base_model in enumerate(self.base_models):
-                y_target_meta_models[:, idx] = self.error_measure(base_models_predictions[idx], y[-y_target_meta_models.shape[0]:])
+                y_error_meta_models[:, idx] = self.error_measure(self.base_models_predictions[idx], y[-y_error_meta_models.shape[0]:])
 
-            return X[-y_target_meta_models.shape[0]:],  self.__chooser(y_target_meta_models)
+            return X[-y_error_meta_models.shape[0]:],  self.__chooser(y_error_meta_models)
 
     def __adapt_method(self):
 
@@ -218,10 +222,16 @@ class MetaLearningModel(object):
 
         return treated_y_meta_models
 
-    def __chooser(self, y_target_meta_models):
+    def __chooser(self, y_error_meta_models):
 
-        new_y_target_meta_models = []
-        for i in range(y_target_meta_models.shape[0]):
-            new_y_target_meta_models.append(self.chooser(y_target_meta_models[i]))
+        '''
+            Apply the chooser function for each error array.
 
-        return np.array(new_y_target_meta_models)
+            Returns the meta model target (label) for each instance.
+        '''
+
+        target_meta_models = np.zeros(y_error_meta_models.shape)
+        for i in range(y_error_meta_models.shape[0]):
+            target_meta_models[i] = self.chooser(y_error_meta_models[i])
+
+        return target_meta_models
