@@ -1,15 +1,16 @@
 from sklearn.model_selection import cross_val_predict
 from sklearn.preprocessing import LabelBinarizer
-from statistics import mode
+import statistics
 import numpy as np
 import warnings
 from utils import mean_absolute_error, minimum_error
 
 class MetaLearningModel(object):
 
-    def __init__(self, meta_model, base_models: list, task: str, mode: str, error_measure=mean_absolute_error, chooser=minimum_error):
+    def __init__(self, meta_model, base_models: list, task: str, mode: str, combiner: '<function>'=None,
+                 error_measure=mean_absolute_error, chooser=minimum_error):
 
-        if self.check_args(meta_model, base_models, task, mode, error_measure, chooser):
+        if self.check_args(meta_model, base_models, task, mode, combiner, error_measure, chooser):
 
             self.meta_models = meta_model
             self.base_models = base_models
@@ -19,7 +20,8 @@ class MetaLearningModel(object):
             self.chooser = chooser
             
 
-    def check_args(self, meta_model, base_models: list, task: str, mode: str, error_measure: '<function>', chooser: '<function>'):
+    def check_args(self, meta_model, base_models: list, task: str, mode: str, combiner: '<function>',
+                   error_measure: '<function>', chooser: '<function>'):
 
         if task not in ['classification', 'regression']:
             raise ValueError('Must choose a task: classification or regression.')
@@ -39,16 +41,22 @@ class MetaLearningModel(object):
             if task == 'classification' and mode == 'score' and 'predict_proba' not in dir(base_model):
                 raise TypeError('If classification task and score mode then base models must have method predict_proba(X).')
 
+        if not combiner:
+            self.combiner = statistics.mode if task == 'classification' else np.mean
+            warnings.warn('You did not pass a combiner function, then it will use a standard one for the task.')
+        else:
+            self.combiner = combiner
+
         return True
 
-    def fit(self, X, y, n_folds=10):
+    def fit(self, X, y, cv=10):
 
         '''
             First, it creates meta model's tranning set using a cross-validation method.
             Then, after targets are checked, it trains both levels - base models and meta model(s).
         '''
 
-        X_meta_models, y_meta_models = self.__cross_validation(X, y, n_folds=n_folds)
+        X_meta_models, y_meta_models = self.__cross_validation(X, y, cv=cv)
 
         y_meta_models = self.__check_targets(y_meta_models)
 
@@ -71,12 +79,12 @@ class MetaLearningModel(object):
             if not np.any(selected_base_models): # if none base model was selected, then select all of them (bagging method)
                 selected_base_models[:] = 1
             
-            final_prediction = self.__combiner(self.__predict_base_models(x, selected_base_models))
+            final_prediction = self.combiner(self.__predict_base_models(x, selected_base_models))
             predictions[idx] = final_prediction
 
         return predictions
 
-    def __fit_both_levels(self, X_y_base_models, X_y_meta_models):
+    def __fit_both_levels(self, X_y_base_models: tuple, X_y_meta_models: tuple):
 
         '''
             It fits base models and meta models. 
@@ -129,10 +137,10 @@ class MetaLearningModel(object):
 
         return predictions
 
-    def __cross_validation(self, X, y, n_folds):
+    def __cross_validation(self, X, y, cv):
 
         '''
-            Cross-validation for each base model given a n_folds. It has three possible flows:
+            Cross-validation for each base model given a cv. It has three possible flows:
 
             1) binary mode: Only for classification task. It checks if the base models labeled correctly or not
             every instance. It is actually creating a trainning set for the meta model. 
@@ -146,7 +154,7 @@ class MetaLearningModel(object):
 
         self.base_models_predictions = {}
         for idx, base_model in enumerate(self.base_models):
-            self.base_models_predictions[idx] = cross_val_predict(base_model, X, y, cv=n_folds, method=self.__adapt_method())
+            self.base_models_predictions[idx] = cross_val_predict(base_model, X, y, cv=cv, method=self.__adapt_method())
 
         if self.mode == 'binary':
 
