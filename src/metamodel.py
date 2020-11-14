@@ -43,7 +43,7 @@ class MetaLearningModel(object):
 
         if not combiner:
             self.combiner = statistics.mode if task == 'classification' else np.mean
-            warnings.warn('You did not pass a combiner function, then it will use a standard one for the task.')
+            warnings.warn('You did not pass a combiner function, then it will use a standard one for the selected task.')
         else:
             self.combiner = combiner
 
@@ -60,6 +60,7 @@ class MetaLearningModel(object):
 
         y_meta_models = self.__check_targets(y_meta_models)
 
+        self.X_meta_models, self.y_meta_models = X_meta_models, y_meta_models # for debugging 
         self.__fit_both_levels((X, y), (X_meta_models, y_meta_models))
 
     def predict(self, X):
@@ -70,6 +71,12 @@ class MetaLearningModel(object):
 
              Returns a label for each istance, using a combiner function.
         '''
+        
+        # some metrics to understand better the prediction
+        self.no_base_classifier = 0
+
+        if self.task == 'classification': # in this particular task, it s interesting to count how many times 
+            self.ties = 0
 
         predictions = np.zeros(len(X))
         for idx, x in enumerate(X):
@@ -78,6 +85,7 @@ class MetaLearningModel(object):
 
             if not np.any(selected_base_models): # if none base model was selected, then select all of them (bagging method)
                 selected_base_models[:] = 1
+                self.no_base_classifier += 1 
             
             final_prediction = self.combiner(self.__predict_base_models(x, selected_base_models))
             predictions[idx] = final_prediction
