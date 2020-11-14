@@ -1,0 +1,5 @@
+src/__pycache__
+src/base-model.py
+src/.vscode
+src/example.py
+data
