@@ -5,7 +5,7 @@ class NaiveEnsemble(object):
 
         self.models = models
 
-    def fit(self, X):
+    def fit(self, X, y):
 
         for model in self.models:
             model.fit(X, y)
