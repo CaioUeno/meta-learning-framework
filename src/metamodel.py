@@ -3,6 +3,7 @@ from sklearn.preprocessing import LabelBinarizer
 import statistics
 import numpy as np
 import warnings
+import time 
 from utils import mean_absolute_error, minimum_error
 
 class MetaLearningModel(object):
@@ -71,17 +72,19 @@ class MetaLearningModel(object):
 
              Returns a label for each istance, using a combiner function.
         '''
-        
-        # some metrics to understand better the prediction
-        self.no_base_classifier = 0
 
-        if self.task == 'classification': # in this particular task, it s interesting to count how many times 
+        if self.task == 'classification': # in this particular task, it is interesting to count how many times there were a tie
             self.ties = 0
 
+        # some metrics to understand better the prediction
         predictions = np.zeros(len(X))
+        self.prediction_base_models_used = np.zeros(len(X))
+        self.prediction_time = time.time()
+
         for idx, x in enumerate(X):
 
             selected_base_models = self.__predict_meta_models(x)
+            self.prediction_base_models_used[idx] = np.sum(selected_base_models)
 
             if not np.any(selected_base_models): # if none base model was selected, then select all of them (bagging method)
                 selected_base_models[:] = 1
@@ -89,6 +92,8 @@ class MetaLearningModel(object):
             
             final_prediction = self.combiner(self.__predict_base_models(x, selected_base_models))
             predictions[idx] = final_prediction
+
+        self.prediction_time = time.time() - self.prediction_time 
 
         return predictions
 
@@ -106,8 +111,11 @@ class MetaLearningModel(object):
 
     def __fit_base_models(self, X, y):
 
-        for base_model in self.base_models:
+        self.fit_time = {i:time.time() for i in range(len(self.base_models))}
+        for idx, base_model in enumerate(self.base_models):
             base_model.fit(X, y)
+            self.fit_time[idx] = time.time() - self.fit_time[idx]
+
 
     def __predict_base_models(self, x, selected_base_models):
 
@@ -119,7 +127,7 @@ class MetaLearningModel(object):
         predictions = []
         for idx, base_model in enumerate(self.base_models):
             if selected_base_models[idx] == 1:
-                predictions.append(base_model.predict([x]).ravel()[0])
+                predictions.append(base_model.predict(x.reshape(1, 1, -1)).ravel()[0])
 
         return predictions
 
@@ -136,12 +144,12 @@ class MetaLearningModel(object):
 
         if self.n_meta_models == 1:
             predictions = np.zeros(len(self.base_models))
-            predictions[self.meta_models.predict([x])] = 1
+            predictions[self.meta_models.predict(x.reshape(1, -1))] = 1
 
         else:
             predictions = np.zeros(len(self.meta_models))
             for idx, meta_model in enumerate(self.meta_models):
-                predictions[idx] = meta_model.predict([x])
+                predictions[idx] = meta_model.predict(x.reshape(1, 1, -1))
 
         return predictions
 
@@ -160,9 +168,13 @@ class MetaLearningModel(object):
             returns X (same as input) and y target for meta model.
         '''
 
+        # save training time for each base model
+        self.cross_validation_time = {i:time.time() for i in range(len(self.base_models))}
         self.base_models_predictions = {}
         for idx, base_model in enumerate(self.base_models):
             self.base_models_predictions[idx] = cross_val_predict(base_model, X, y, cv=cv, method=self.__adapt_method())
+            self.cross_validation_time[idx] = time.time() - self.cross_validation_time[idx]
+        
 
         if self.mode == 'binary':
 

@@ -3,3 +3,4 @@ src/base-model.py
 src/.vscode
 src/example.py
 data
+.ipynb_checkpoints
