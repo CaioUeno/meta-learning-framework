@@ -8,8 +8,8 @@ from utils import mean_absolute_error, minimum_error
 
 class MetaLearningModel(object):
 
-    def __init__(self, meta_model, base_models: list, task: str, mode: str, combiner: '<function>'=None,
-                 error_measure=mean_absolute_error, chooser=minimum_error):
+    def __init__(self, meta_model, base_models: list, task: str, mode: str, multi_class: bool=False, 
+                 combiner: '<function>'=None, error_measure=mean_absolute_error, chooser=minimum_error):
 
         if self.check_args(meta_model, base_models, task, mode, combiner, error_measure, chooser):
 
@@ -17,6 +17,7 @@ class MetaLearningModel(object):
             self.base_models = base_models
             self.task = task
             self.mode = mode
+            self.multi_class = multi_class
             self.error_measure = error_measure
             self.chooser = chooser
             
@@ -79,18 +80,18 @@ class MetaLearningModel(object):
         # some metrics to understand better the prediction
         predictions = np.zeros(len(X))
         self.prediction_base_models_used = np.zeros(len(X))
-        self.prediction_time = time.time()
+        self.prediction_time = time.time()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
 
         for idx, x in enumerate(X):
 
             selected_base_models = self.__predict_meta_models(x)
             self.prediction_base_models_used[idx] = np.sum(selected_base_models)
-
+            
             if not np.any(selected_base_models): # if none base model was selected, then select all of them (bagging method)
                 selected_base_models[:] = 1
-                self.no_base_classifier += 1 
+                # self.no_base_classifier += 1 
             
-            final_prediction = self.combiner(self.__predict_base_models(x, selected_base_models))
+            final_prediction = self.combiner(self.__predict_base_models(x, selected_base_models))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
             predictions[idx] = final_prediction
 
         self.prediction_time = time.time() - self.prediction_time 
@@ -127,29 +128,39 @@ class MetaLearningModel(object):
         predictions = []
         for idx, base_model in enumerate(self.base_models):
             if selected_base_models[idx] == 1:
-                predictions.append(base_model.predict(x.reshape(1, 1, -1)).ravel()[0])
+                predictions.append(base_model.predict(x).ravel()[0])
 
         return predictions
 
     def __fit_meta_models(self, X, y):
 
-        if self.n_meta_models == 1: # if for each instance there is only one possible class - base model chosen
-            self.meta_models.fit(X, np.argmax(y, axis=1))
+        if self.multi_class == True:
+            self.meta_models.fit(X, y)
 
-        else: # if it is a multi-label classification task
-            for idx, meta_model in enumerate(self.meta_models):
-                meta_model.fit(X, y[:, idx])
+        else:
+            # if for each instance there is only one possible class - base model chosen
+            if self.n_meta_models == 1: 
+                self.meta_models.fit(X, np.argmax(y, axis=1))
+
+            # if it is a multi-label classification task and the meta model does not support it
+            else: 
+                for idx, meta_model in enumerate(self.meta_models):
+                    meta_model.fit(X, y[:, idx])
 
     def __predict_meta_models(self, x):
 
-        if self.n_meta_models == 1:
-            predictions = np.zeros(len(self.base_models))
-            predictions[self.meta_models.predict(x.reshape(1, -1))] = 1
+        if self.multi_class == True:
+            predictions = self.meta_models.predict(x)
 
         else:
-            predictions = np.zeros(len(self.meta_models))
-            for idx, meta_model in enumerate(self.meta_models):
-                predictions[idx] = meta_model.predict(x.reshape(1, 1, -1))
+            if self.n_meta_models == 1:
+                predictions = np.zeros(len(self.base_models))
+                predictions[self.meta_models.predict(x)] = 1
+
+            else:
+                predictions = np.zeros(len(self.meta_models))
+                for idx, meta_model in enumerate(self.meta_models):
+                    predictions[idx] = meta_model.predict(x)
 
         return predictions
 
@@ -241,7 +252,7 @@ class MetaLearningModel(object):
         treated_y_meta_models = y_meta_models[:, sum_up != 0]
         
         # check if there is any instance that has more than one base model assigned to it.
-        if np.any(np.sum(treated_y_meta_models, axis=1) > 1):
+        if np.any(np.sum(treated_y_meta_models, axis=1) > 1) and self.multi_class == False:
             self.meta_models = [self.meta_models for _ in range(len(self.base_models))]
             self.n_meta_models = len(self.base_models)
 
