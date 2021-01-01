@@ -135,6 +135,7 @@ class MetaLearningModel(object):
 
     def __fit_meta_models(self, X, y):
 
+        self.meta_fit_time = time.time()
         if self.multi_class == True:
             self.meta_models.fit(X, y)
 
@@ -147,6 +148,7 @@ class MetaLearningModel(object):
             else: 
                 for idx, meta_model in enumerate(self.meta_models):
                     meta_model.fit(X, y[:, idx])
+        self.meta_fit_time = time.time() - self.meta_fit_time
 
     def __predict_meta_models(self, x):
 
@@ -279,6 +281,7 @@ class MetaLearningModel(object):
     def save_time_metrics(self, path):
 
         self.time_metrics = pd.concat([pd.DataFrame([self.fit_time]).T, pd.DataFrame([self.cross_validation_time]).T])
+        self.time_metrics = pd.concat([self.time_metrics, pd.DataFrame([{'MetaModel-Fit':self.meta_fit_time}]).T])
         self.time_metrics = pd.concat([self.time_metrics, pd.DataFrame([{'Prediction':self.prediction_time}]).T])
         self.time_metrics.rename(columns={0:'Time (secs)'}, inplace=True)
         self.time_metrics.to_csv(path)
