@@ -2,6 +2,7 @@ from sklearn.model_selection import cross_val_predict
 from sklearn.preprocessing import LabelBinarizer
 import statistics
 import numpy as np
+import pandas as pd
 import warnings
 import time 
 from utils import mean_absolute_error, minimum_error
@@ -80,7 +81,7 @@ class MetaLearningModel(object):
         # some metrics to understand better the prediction
         predictions = np.zeros(len(X))
         self.prediction_base_models_used = np.zeros(len(X))
-        self.prediction_time = time.time()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+        self.prediction_time = time.time()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
 
         for idx, x in enumerate(X):
 
@@ -112,10 +113,10 @@ class MetaLearningModel(object):
 
     def __fit_base_models(self, X, y):
 
-        self.fit_time = {i:time.time() for i in range(len(self.base_models))}
+        self.fit_time = {'Fit-'+self.base_models[i].name:time.time() for i in range(len(self.base_models))}
         for idx, base_model in enumerate(self.base_models):
             base_model.fit(X, y)
-            self.fit_time[idx] = time.time() - self.fit_time[idx]
+            self.fit_time['Fit-'+self.base_models[idx].name] = time.time() - self.fit_time['Fit-'+self.base_models[idx].name]
 
 
     def __predict_base_models(self, x, selected_base_models):
@@ -180,11 +181,11 @@ class MetaLearningModel(object):
         '''
 
         # save training time for each base model
-        self.cross_validation_time = {i:time.time() for i in range(len(self.base_models))}
+        self.cross_validation_time = {'CV-'+self.base_models[i].name:time.time() for i in range(len(self.base_models))}
         self.base_models_predictions = {}
         for idx, base_model in enumerate(self.base_models):
             self.base_models_predictions[idx] = cross_val_predict(base_model, X, y, cv=cv, method=self.__adapt_method())
-            self.cross_validation_time[idx] = time.time() - self.cross_validation_time[idx]
+            self.cross_validation_time['CV-'+self.base_models[idx].name] = time.time() - self.cross_validation_time['CV-'+self.base_models[idx].name]
         
 
         if self.mode == 'binary':
@@ -274,3 +275,10 @@ class MetaLearningModel(object):
             target_meta_models[i] = self.chooser(y_error_meta_models[i])
 
         return target_meta_models
+
+    def save_time_metrics(self, path):
+
+        self.time_metrics = pd.concat([pd.DataFrame([self.fit_time]).T, pd.DataFrame([self.cross_validation_time]).T])
+        self.time_metrics = pd.concat([self.time_metrics, pd.DataFrame([{'Prediction':self.prediction_time}]).T])
+        self.time_metrics.rename(columns={0:'Time (secs)'}, inplace=True)
+        self.time_metrics.to_csv(path)
