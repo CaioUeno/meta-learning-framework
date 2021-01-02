@@ -1,6 +1,15 @@
 import numpy as np
 from tensorflow.keras.layers import Input, Dense, LSTM
 from tensorflow.keras import Model
+import tensorflow.keras.backend as K
+import tensorflow.math as M
+
+def custom_loss(y_true, y_pred):
+
+    abs_diff = K.abs(y_true - y_pred)
+    mult = M.multiply(abs_diff, y_pred)
+    custom_loss = abs_diff + mult
+    return custom_loss
 
 class NeuralNetworkMetaClassifier(object):
     
@@ -8,10 +17,10 @@ class NeuralNetworkMetaClassifier(object):
 
         inputs = Input(shape=(1, in_shape,))
         lstm = LSTM(lstm_cells)(inputs)
-        out = Dense(out_shape)(lstm)
+        out = Dense(out_shape, activation='sigmoid')(lstm)
 
         self.meta_clf = Model(inputs=inputs, outputs=out)
-        self.meta_clf.compile(optimizer='rmsprop', loss='mae')
+        self.meta_clf.compile(optimizer='rmsprop', loss=custom_loss)
 
         self.batch_size = batch_size
         self.epochs = epochs
