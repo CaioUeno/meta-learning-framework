@@ -6,11 +6,12 @@ from meta_nn import NeuralNetworkMetaClassifier
 from metamodel import MetaLearningModel
 from naive_ensemble import NaiveEnsemble
 import os
+import sys
 
 if __name__ == "__main__":
 
     # select dataset
-    dataset_name = 'CBF'
+    dataset_name = sys.argv[1]
     # if 'MetaModel_time_metrics.csv' in os.listdir('../Univariate_ts/'+dataset_name+'/'):
     #     print('This dataset is already done!')
     #     exit(0)
@@ -19,6 +20,7 @@ if __name__ == "__main__":
     X_train, y_train = load_from_tsfile_to_dataframe('../Univariate_ts/'+dataset_name+'/'+dataset_name+'_TRAIN.ts')
     X_test, y_test = load_from_tsfile_to_dataframe('../Univariate_ts/'+dataset_name+'/'+dataset_name+'_TRAIN.ts')
 
+    # str label to int label
     y_test = [int(y) for y in y_test]
 
     # list of classifiers to be used
@@ -26,7 +28,7 @@ if __name__ == "__main__":
                LocalClassifier(WEASEL(), 'WAESEL')]
 
     # meta model 
-    mm = MetaLearningModel(NeuralNetworkMetaClassifier(X_train.values[0][0].shape[0], len(bm_list)), bm_list, 'classification', 'binary', multi_class=True)
+    mm = MetaLearningModel(NeuralNetworkMetaClassifier(X_train.values[0][0].shape[0], len(bm_list), 8, 1, 5), bm_list, 'classification', 'binary', multi_class=True)
     mm.fit(X_train, y_train)
     meta_preds = mm.predict(X_test.values)
     mm.save_performance_metrics('../Univariate_ts/'+dataset_name+'/MetaModel_performance_metrics.csv', y_test, meta_preds)
