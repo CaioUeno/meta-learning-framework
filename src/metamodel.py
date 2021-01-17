@@ -3,6 +3,7 @@ import pandas as pd
 import statistics
 import time
 import warnings
+from tqdm import tqdm
 
 from sklearn.model_selection import cross_val_predict
 from sklearn.preprocessing import LabelBinarizer
@@ -116,7 +117,7 @@ class MetaLearningModel(object):
         # everything is right!
         return True
 
-    def fit(self, X, y, cv=10):
+    def fit(self, X, y, cv=10, verbose=True, dynamic_shrink=True):
 
         """
             First, it creates meta model's tranning set using a cross-validation method.
@@ -127,9 +128,9 @@ class MetaLearningModel(object):
                 y (pd.Series, pd.DataFrame or np.ndarray): labels for each instance on X. It has shape (n_instances, ...) as well.
         """
 
-        X_meta_models, y_meta_models = self.__cross_validation(X, y, cv=cv)
+        X_meta_models, y_meta_models = self.__cross_validation(X, y, cv=cv, verbose=verbose)
 
-        y_meta_models = self.__check_targets(y_meta_models)
+        y_meta_models = self.__check_targets(y_meta_models, dynamic_shrink)
 
         self.X_meta_models, self.y_meta_models = (
             X_meta_models,
@@ -226,7 +227,7 @@ class MetaLearningModel(object):
         predictions = []
         for idx, base_model in enumerate(self.base_models):
             if selected_base_models[idx] == 1:
-                predictions.append(base_model.predict(x).ravel()[0])
+                predictions.append(base_model.predict_one(x).ravel()[0])
 
         return predictions
 
@@ -264,7 +265,7 @@ class MetaLearningModel(object):
 
         return predictions
 
-    def __cross_validation(self, X, y, cv):
+    def __cross_validation(self, X, y, cv, verbose):
 
         """
             Cross-validation for each base model given a cv. It has three possible flows:
@@ -279,13 +280,16 @@ class MetaLearningModel(object):
         returns X (same as input) and y target for meta model.
         """
 
+        if verbose:
+            print('Starting cross-validation:')
         # save training time for each base model
         self.cross_validation_time = {
             "CV-" + self.base_models[i].name: time.time()
             for i in range(len(self.base_models))
         }
         self.base_models_predictions = {}
-        for idx, base_model in enumerate(self.base_models):
+        for idx, base_model in (tqdm(enumerate(self.base_models)) if verbose else enumerate(self.base_models)):
+
             self.base_models_predictions[idx] = cross_val_predict(
                 base_model, X, y, cv=cv, method=self.__adapt_method()
             )
@@ -343,7 +347,7 @@ class MetaLearningModel(object):
         else:
             return "predict_proba"
 
-    def __check_targets(self, y_meta_models):
+    def __check_targets(self, y_meta_models, dynamic_shrink):
 
         """
             It checks if there is any base model that was not selected for any instance.
@@ -355,16 +359,22 @@ class MetaLearningModel(object):
         Returns treated y_meta_models.
         """
 
-        # sum over rows to return how many times each base model were selected
-        sum_up = np.sum(y_meta_models, axis=0)
+        if dynamic_shrink:
 
-        for i in range(sum_up.shape[0]):
+            # sum over rows to return how many times each base model were selected
+            sum_up = np.sum(y_meta_models, axis=0)
 
-            if sum_up[i] == 0:  # base model at index i were never selected
-                self.base_models.remove(self.base_models[i])
+            for i in range(sum_up.shape[0]):
 
-        treated_y_meta_models = y_meta_models[:, sum_up != 0]
+                if sum_up[i] == 0:  # base model at index i were never selected
+                    print('Base classifier '+self.base_models[i].name+' was never selected, thus it was removed from set.')
+                    self.base_models.remove(self.base_models[i])
 
+            treated_y_meta_models = y_meta_models[:, sum_up != 0]
+        
+        else:
+            treated_y_meta_models = y_meta_models
+            
         # check if there is any instance that has more than one base model assigned to it.
         if (
             np.any(np.sum(treated_y_meta_models, axis=1) > 1)
@@ -406,15 +416,20 @@ class MetaLearningModel(object):
             "accuracy",
             "precision",
             "recall",
-            "f1-score",
+            "f1-score"
         ]
         self.performance_metrics["value"] = [
             accuracy_score(y_true, y_pred),
             precision_score(y_true, y_pred, average="micro"),
             recall_score(y_true, y_pred, average="micro"),
-            f1_score(y_true, y_pred, average="micro"),
+            f1_score(y_true, y_pred, average="micro")
         ]
+
         self.performance_metrics.to_csv(path, index=False)
+
+    def save_base_models_used(self, path):
+
+        np.save(path, self.prediction_base_models_used)
 
     def save_time_metrics(self, path):
 
