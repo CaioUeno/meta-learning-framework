@@ -7,11 +7,7 @@ from sktime.classification.dictionary_based import (
     IndividualTDE,
     WEASEL,
 )
-
-# from sktime.classification.distance_based import ElasticEnsemble
 from sktime.classification.distance_based import ProximityForest, ProximityTree
-
-# from sktime.classification.distance_based import ProximityStump
 from sktime.classification.frequency_based import RandomIntervalSpectralForest
 from sktime.classification.interval_based import TimeSeriesForest
 from sktime.classification.shapelet_based import ShapeletTransformClassifier
@@ -42,18 +38,16 @@ if __name__ == "__main__":
 
     # list of classifiers to be used
     bm_list = [
-        LocalClassifierII(IndividualBOSS(), "IndividualBOSS"),
-        LocalClassifierII(BOSSEnsemble(), "BOSSEnsemble"),
-        LocalClassifierII(MUSE(), "MUSE"),
-        LocalClassifierII(TemporalDictionaryEnsemble(), "TemporalDictionaryEnsemble"),
-        LocalClassifierII(IndividualTDE(), "IndividualTDE"),
-        LocalClassifierII(WEASEL(), "WEASEL"),
-        LocalClassifierII(ProximityForest(), "ProximityForest"),
-        LocalClassifierII(ProximityTree(), "ProximityTree"),
-        LocalClassifierII(
-            RandomIntervalSpectralForest(), "RandomIntervalSpectralForest"
-        ),
-        LocalClassifierII(TimeSeriesForest(), "TimeSeriesForest"),
+        LocalClassifierII(IndividualBOSS(random_state=11), "IndividualBOSS"),
+        LocalClassifierII(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
+        LocalClassifierII(MUSE(random_state=11), "MUSE"),
+        LocalClassifierII(TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"),
+        LocalClassifierII(IndividualTDE(random_state=11), "IndividualTDE"),
+        LocalClassifierII(WEASEL(random_state=11), "WEASEL"),
+        LocalClassifierII(ProximityForest(random_state=11), "ProximityForest"),
+        LocalClassifierII(ProximityTree(random_state=11), "ProximityTree"),
+        LocalClassifierII(RandomIntervalSpectralForest(random_state=11), "RandomIntervalSpectralForest"),
+        LocalClassifierII(TimeSeriesForest(random_state=11), "TimeSeriesForest"),
         TSKNN_DTW(),
         TSKNN_ED(),
     ]
@@ -92,18 +86,18 @@ if __name__ == "__main__":
 
     # reinitialize base models
     bm_list = [
-        LocalClassifierII(IndividualBOSS(), "IndividualBOSS"),
-        LocalClassifierII(BOSSEnsemble(), "BOSSEnsemble"),
-        LocalClassifierII(MUSE(), "MUSE"),
-        LocalClassifierII(TemporalDictionaryEnsemble(), "TemporalDictionaryEnsemble"),
-        LocalClassifierII(IndividualTDE(), "IndividualTDE"),
-        LocalClassifierII(WEASEL(), "WEASEL"),
-        LocalClassifierII(ProximityForest(), "ProximityForest"),
-        LocalClassifierII(ProximityTree(), "ProximityTree"),
+        LocalClassifierII(IndividualBOSS(random_state=11), "IndividualBOSS"),
+        LocalClassifierII(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
+        LocalClassifierII(MUSE(random_state=11), "MUSE"),
+        LocalClassifierII(TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"),
+        LocalClassifierII(IndividualTDE(random_state=11), "IndividualTDE"),
+        LocalClassifierII(WEASEL(random_state=11), "WEASEL"),
+        LocalClassifierII(ProximityForest(random_state=11), "ProximityForest"),
+        LocalClassifierII(ProximityTree(random_state=11), "ProximityTree"),
         LocalClassifierII(
-            RandomIntervalSpectralForest(), "RandomIntervalSpectralForest"
+            RandomIntervalSpectralForest(random_state=11), "RandomIntervalSpectralForest"
         ),
-        LocalClassifierII(TimeSeriesForest(), "TimeSeriesForest"),
+        LocalClassifierII(TimeSeriesForest(random_state=11), "TimeSeriesForest"),
         TSKNN_DTW(),
         TSKNN_ED(),
     ]
@@ -111,7 +105,7 @@ if __name__ == "__main__":
     # naive ensemble
     ne = NaiveEnsemble(bm_list)
 
-    # fit andpredcit methods
+    # fit and predict methods
     ne.fit(X_train, y_train)
     ne_preds = ne.predict(X_test)
 

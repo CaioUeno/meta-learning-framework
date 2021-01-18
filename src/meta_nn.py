@@ -13,7 +13,7 @@ def custom_loss(y_true, y_pred):
 
 class NeuralNetworkMetaClassifier(object):
     
-    def __init__(self, in_shape, out_shape, lstm_cells, batch_size=4, epochs=5):
+    def __init__(self, in_shape, out_shape, lstm_cells, batch_size=4, epochs=10):
 
         inputs = Input(shape=(1, in_shape,))
         lstm = LSTM(lstm_cells)(inputs)
