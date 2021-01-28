@@ -12,11 +12,24 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 # own library
 from utils import mean_absolute_error, minimum_error
 
+
 class MetaLearningModel(object):
 
     """
-        Class for a Meta-Learning model. It is a model that applies machine learning technique
+        Class for a Meta-Learning model. It is a model that applies a machine learning technique
         to better ensemble base models.
+
+        Arguments:
+            meta_model (classifier): base estimator to select base models.
+            base_models (list): base models' list.
+            task (str): one option between classification and regression.
+            mode (str): one option between binary and score.
+            multi_label (bool): if the given base estimator as
+                                the meta_model supports a multiclass classification task.
+            combiner (function): function that combines outputs.
+            error_measure (function): function that calculate the error
+                                    between the true and predicted label.
+            chooser (function): function that implements the condition to a base model be chosen.
     """
 
     def __init__(
@@ -25,27 +38,11 @@ class MetaLearningModel(object):
         base_models: list,
         task: str,
         mode: str,
-        multi_class: bool = False,
+        multi_label: bool = False,
         combiner: "<function>" = None,
         error_measure=mean_absolute_error,
         chooser=minimum_error,
     ):
-
-        """
-            Initializer.
-
-            Arguments:
-                meta_model (classifier): base estimator to select base models.
-                base_models (list): base models' list.
-                task (str): one option between classification and regression.
-                mode (str): one option between binary and score.
-                multi_class (bool): if the given base estimator as 
-                                    the meta_model supports a multiclass classification task.
-                combiner (function): function that combines outputs.
-                error_measure (function): function that calculate the error
-                                          between the true and predicted label.
-                chooser (function): function that implements the condition to a base model be chosen.
-        """
 
         if self.check_args(
             meta_model, base_models, task, mode, combiner, error_measure, chooser
@@ -55,7 +52,7 @@ class MetaLearningModel(object):
             self.base_models = base_models
             self.task = task
             self.mode = mode
-            self.multi_class = multi_class
+            self.multi_label = multi_label
             self.error_measure = error_measure
             self.chooser = chooser
 
@@ -72,7 +69,7 @@ class MetaLearningModel(object):
 
         """
             Check some arguments to initialiaze the class properly. Also, it does
-            some inferences to variables - if they are undefined.
+            some inferences to undefined variables - if so.
         """
 
         # check task arg
@@ -102,7 +99,7 @@ class MetaLearningModel(object):
                 and "predict_proba" not in dir(base_model)
             ):
                 raise TypeError(
-                    "If classification task and score mode then base models must have method predict_proba(X)."
+                    "If classification task and score mode chosen then base models must have method predict_proba(X)."
                 )
 
         # define the combiner function if it was not passed as an argument
@@ -114,13 +111,13 @@ class MetaLearningModel(object):
         else:
             self.combiner = combiner
 
-        # everything is right!
+        # everything is all right!
         return True
 
     def fit(self, X, y, cv=10, verbose=True, dynamic_shrink=True):
 
         """
-            First, it creates meta model's tranning set using a cross-validation method.
+            First, it creates meta model's training set using a cross-validation method.
             Then, after targets are checked, it trains both levels - base models and meta model(s).
 
             Arguments:
@@ -128,17 +125,24 @@ class MetaLearningModel(object):
                 y (pd.Series, pd.DataFrame or np.ndarray): labels for each instance on X. It has shape (n_instances, ...) as well.
         """
 
-        X_meta_models, y_meta_models = self.__cross_validation(X, y, cv=cv, verbose=verbose)
+        # crate meta model training set
+        X_meta_models, y_meta_models = self.__cross_validation(
+            X, y, cv=cv, verbose=verbose
+        )
 
+        # check meta model y (targets)
         y_meta_models = self.__check_targets(y_meta_models, dynamic_shrink)
 
+        # for debugging
         self.X_meta_models, self.y_meta_models = (
             X_meta_models,
             y_meta_models,
-        )  # for debugging
+        )
+
+        # fit both levels - meta model and base models
         self.__fit_both_levels((X, y), (X_meta_models, y_meta_models))
 
-    def predict(self, X):
+    def predict(self, X, verbose=True):
 
         """
             The meta model predicts for each instance which base models are going to be selected.
@@ -147,7 +151,7 @@ class MetaLearningModel(object):
             Arguments:
                 X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
 
-            Returns: 
+            Returns:
                 predictions (np.ndarray): an array that contains a label for each instance, using the combiner function.
         """
 
@@ -156,27 +160,36 @@ class MetaLearningModel(object):
         ):  # in this particular task, it is interesting to count how many times there were a tie
             self.ties = 0
 
-        # some metrics to understand better the prediction
         predictions = np.zeros(len(X))
+
+        # store how many base models were selected for each instance (metric)
         self.prediction_base_models_used = np.zeros(len(X))
+
+        # estimate prediction time - start
         self.prediction_time = time.time()
 
-        for idx, x in enumerate(X):
+        # iterate over instances
+        for idx, x in tqdm(enumerate(X)) if verbose else enumerate(X):
 
+            # meta model prediction tells which base models to use
             selected_base_models = self.__predict_meta_models(x)
+
+            # metric
             self.prediction_base_models_used[idx] = np.sum(selected_base_models)
 
+            # if none base model was selected, then select all of them (similar to the bagging approach)
             if not np.any(
                 selected_base_models
-            ):  # if none base model was selected, then select all of them (bagging method)
+            ):  
                 selected_base_models[:] = 1
-                # self.no_base_classifier += 1
 
+            # combine selected base models predictions in one final prediction
             final_prediction = self.combiner(
                 self.__predict_base_models(x, selected_base_models)
             )
             predictions[idx] = final_prediction
 
+        # estimate prediction time - end
         self.prediction_time = time.time() - self.prediction_time
 
         return predictions
@@ -185,7 +198,7 @@ class MetaLearningModel(object):
 
         """
             It fits base models and meta models.
-            
+
             Arguments:
                 X_y_base_models (tuple): training set of base models.
                 X_y_meta_models (tuple): training set of meta model.
@@ -201,18 +214,22 @@ class MetaLearningModel(object):
 
         """
             It fits base models.
-            
+
             Arguments:
                 X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
                 y (pd.Series, pd.DataFrame or np.ndarray): labels for each instance on X. It has shape (n_instances, ...) as well.
         """
 
+        # estimate fit time for each base model - start
         self.fit_time = {
             "Fit-" + self.base_models[i].name: time.time()
             for i in range(len(self.base_models))
         }
         for idx, base_model in enumerate(self.base_models):
+            
             base_model.fit(X, y)
+
+            # estimate fit time for each base model - end
             self.fit_time["Fit-" + self.base_models[idx].name] = (
                 time.time() - self.fit_time["Fit-" + self.base_models[idx].name]
             )
@@ -220,29 +237,45 @@ class MetaLearningModel(object):
     def __predict_base_models(self, x, selected_base_models):
 
         """
-        Given a instance x, and a mask selected_base_models - it contains which base models were
-        selected for this instance - returns a list contaning selected base models' predictions.
+            Given a instance x, and a mask selected_base_models - it contains which base models were
+            selected for this instance - returns a list contaning selected base models' predictions.
+
+            Arguments:
+                x (np.ndarray): a single instance.
+
+            Returns:
+                predictions (list): A list which contains only the ** selected ** base models predictions for the given instance.
         """
 
         predictions = []
         for idx, base_model in enumerate(self.base_models):
             if selected_base_models[idx] == 1:
-                predictions.append(base_model.predict_one(x).ravel()[0])
+                predictions.append(base_model.predict_one(x))
 
         return predictions
 
     def __fit_meta_models(self, X, y):
 
+        """
+            It fits meta models.
+
+            Arguments:
+                X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
+                y (pd.Series, pd.DataFrame or np.ndarray): meta labels for each instance on X. It has shape (n_instances, n_base_models).
+        """
+
+        # single meta model that supports a multi-label task
         self.meta_fit_time = time.time()
-        if self.multi_class == True:
+        if self.multi_label == True:
             self.meta_models.fit(X, y)
 
         else:
-            # if for each instance there is only one possible class - base model chosen
+
+            # single meta model for a multi-class task
             if self.n_meta_models == 1:
                 self.meta_models.fit(X, np.argmax(y, axis=1))
 
-            # if it is a multi-label classification task and the meta model does not support it
+            # a set of binary meta models that do not support a multi-label task but simulate it
             else:
                 for idx, meta_model in enumerate(self.meta_models):
                     meta_model.fit(X, y[:, idx])
@@ -250,57 +283,93 @@ class MetaLearningModel(object):
 
     def __predict_meta_models(self, x):
 
-        if self.multi_class == True:
-            predictions = self.meta_models.predict(x)
+        """
+            Given a instance x, it returns the meta models prediction for it.
+
+            Arguments:
+                x (np.ndarray): a single instance.
+
+            Returns:
+                predictions (np.ndarray): An array with length n_base_models indicating which base models are going to be used.
+        """
+
+        # single meta model that supports a multi-label task
+        if self.multi_label == True:
+            predictions = self.meta_models.predict_one(x)
 
         else:
+
+            # single meta model for a multi-class task
             if self.n_meta_models == 1:
                 predictions = np.zeros(len(self.base_models))
-                predictions[self.meta_models.predict(x)] = 1
+                predictions[self.meta_models.predict_one(x)] = 1
 
+            # a set of binary meta models that do not support a multi-label task but simulate it
             else:
                 predictions = np.zeros(len(self.meta_models))
                 for idx, meta_model in enumerate(self.meta_models):
-                    predictions[idx] = meta_model.predict(x)
+                    predictions[idx] = meta_model.predict_one(x)
 
         return predictions
 
     def __cross_validation(self, X, y, cv, verbose):
 
         """
-            Cross-validation for each base model given a cv. It has three possible flows:
+            Cross-validation for each base model given a cv (check cross_val_predict sklearn function).
+            It is actually creating a trainning set for the meta model.
+
+            It has three possible flows:
 
             1) binary mode: Only for classification task. It checks if the base models labeled correctly or not
-            every instance. It is actually creating a trainning set for the meta model.
+            every instance.
 
             2) classification score mode:
 
-            3) regression (only works with score mode):
+            3) regression (only works with score mode): Given an error measure fuction () and a selection function (),
+            it create
+
+            Arguments:
+
+            Returns:
+                X
+                y
 
         returns X (same as input) and y target for meta model.
         """
 
         if verbose:
-            print('Starting cross-validation:')
+            print("Starting cross-validation:")
+
         # save training time for each base model
         self.cross_validation_time = {
             "CV-" + self.base_models[i].name: time.time()
             for i in range(len(self.base_models))
         }
+
+        # cross validation for each base model - store its prediction as well
         self.base_models_predictions = {}
-        for idx, base_model in (tqdm(enumerate(self.base_models)) if verbose else enumerate(self.base_models)):
+        for idx, base_model in (
+            tqdm(enumerate(self.base_models))
+            if verbose
+            else enumerate(self.base_models)
+        ):
 
             self.base_models_predictions[idx] = cross_val_predict(
                 base_model, X, y, cv=cv, method=self.__adapt_method()
             )
+
+            # save training time for each base model
             self.cross_validation_time["CV-" + self.base_models[idx].name] = (
                 time.time()
                 - self.cross_validation_time["CV-" + self.base_models[idx].name]
             )
 
+        # decide which approach to follow based on task and mode
         if self.mode == "binary":
 
+            # binary multi-label task dataset - if prediction is equal to true label, then base model is selected
             y_target_meta_models = np.zeros((y.shape[0], len(self.base_models)))
+
             for idx, base_model in enumerate(self.base_models):
                 y_target_meta_models[:, idx] = (
                     self.base_models_predictions[idx] == y
@@ -313,31 +382,48 @@ class MetaLearningModel(object):
             lb = LabelBinarizer()
 
             y_error_meta_models = np.zeros((y.shape[0], len(self.base_models)))
+
+            # given an error measure function and a selector funtion, select "only" useful base models
             for idx, base_model in enumerate(self.base_models):
                 y_error_meta_models[:, idx] = self.error_measure(
                     self.base_models_predictions[idx], lb.fit_transform(y)
                 )
 
-            return X, self.__chooser(y_error_meta_models)
+            return X, self.__selector(y_error_meta_models)
 
+        # regression task that depends on an error measure and a selection function
         else:
+
+            # note that it can have a different shape (less than the original)
+            # if you are working on a time series forecasing task it must keep the time order, 
+            # thus you will lost some instances in the "beginning times" during cross validation 
+            # (check cross_val_predict sklearn function for time series forecasing cv param)
             y_error_meta_models = np.zeros(
                 (self.base_models_predictions[0].shape[0], len(self.base_models))
             )
+
+            # given an error measure function and a selector funtion, select "only" useful base models
             for idx, base_model in enumerate(self.base_models):
-                y_error_meta_models[:, idx] = self.error_measure(
+                # y_error_meta_models[:, idx] = self.error_measure(
+                #     self.base_models_predictions[idx],
+                #     y[-y_error_meta_models.shape[0] :],
+                # )
+                y_error_meta_models[:, idx] = self.__measure_error(
                     self.base_models_predictions[idx],
                     y[-y_error_meta_models.shape[0] :],
                 )
 
-            return X[-y_error_meta_models.shape[0] :], self.__chooser(
+            return X[-y_error_meta_models.shape[0] :], self.__selector(
                 y_error_meta_models
             )
 
     def __adapt_method(self):
 
         """
-            Decide which method is the correct one based on task+mode.
+            Decide which method is the correct one based on task and mode to pass to cross_val_predict function.
+
+            Returns:
+                method name (string): method name to be used to predict {predict, predict_proba}.
         """
 
         if self.task == "regression" or (
@@ -354,31 +440,43 @@ class MetaLearningModel(object):
             Those base models can be removed, because they are not going to be useful on prediction.
             Also, this function infers if the meta model task will be a multi-label or not
             (If more than one base model were selected for any instance then it will be a multi-label task).
-            The previous check ensure that this can be done.
 
-        Returns treated y_meta_models.
+            Arguments:
+                y_meta_models (np.ndarray): 
+                dynamic_shrink (bool): flag to remove unused base models.
+
+            Returns:
+                treated y_meta_models (np.ndarray): .
         """
 
+        # flag to remove base models that were not selected for any instance
         if dynamic_shrink:
 
             # sum over rows to return how many times each base model were selected
             sum_up = np.sum(y_meta_models, axis=0)
 
             for i in range(sum_up.shape[0]):
-
-                if sum_up[i] == 0:  # base model at index i were never selected
-                    print('Base classifier '+self.base_models[i].name+' was never selected, thus it was removed from set.')
+                
+                # base model at index i were never selected
+                if sum_up[i] == 0:  
+                    print(
+                        "Base classifier "
+                        + self.base_models[i].name
+                        + " was never selected, thus it was removed from set."
+                    )
                     self.base_models.remove(self.base_models[i])
 
             treated_y_meta_models = y_meta_models[:, sum_up != 0]
-        
+
         else:
             treated_y_meta_models = y_meta_models
-            
-        # check if there is any instance that has more than one base model assigned to it.
+
+        # check if there is any instance that has more than one base model assigned to it
+        # and if the meta model doesn't support a multi-label task.
+        # Finally, infers how many meta models it will need based on those checks.
         if (
             np.any(np.sum(treated_y_meta_models, axis=1) > 1)
-            and self.multi_class == False
+            and self.multi_label == False
         ):
             self.meta_models = [self.meta_models for _ in range(len(self.base_models))]
             self.n_meta_models = len(self.base_models)
@@ -388,10 +486,28 @@ class MetaLearningModel(object):
 
         return treated_y_meta_models
 
-    def __chooser(self, y_error_meta_models):
+    def __measure_error(self, y_pred, y_true):
+
+        """
+
+        """
+
+        y_error = np.zeros((y_pred.shape[0]))
+        for idx, (pred, true) in enumerate(zip(y_pred, y_true)):
+            y_error[idx] = self.error_measure(pred, true)
+
+        return y_error
+
+    def __selector(self, y_error_meta_models):
 
         """
             Apply the chooser function for each error array.
+
+            Arguments:
+                y_error_meta_models (np.ndarray): Array which contains errors for each base model for each instance. It has shape (n_instances, n_base_models).
+
+            Returns:
+                target_meta_models (np.ndarray): 
 
             Returns the meta model target (label) for each instance.
         """
@@ -405,10 +521,10 @@ class MetaLearningModel(object):
     def save_performance_metrics(self, path, y_true, y_pred):
 
         """
-            Save performance metrics into a .csv file given by path.
+        Save performance metrics into a .csv file given by path.
 
-            Arguments:
-                path (str): file's path (.csv). 
+        Arguments:
+            path (str): file's path (.csv).
         """
 
         self.performance_metrics = pd.DataFrame()
@@ -416,13 +532,13 @@ class MetaLearningModel(object):
             "accuracy",
             "precision",
             "recall",
-            "f1-score"
+            "f1-score",
         ]
         self.performance_metrics["value"] = [
             accuracy_score(y_true, y_pred),
             precision_score(y_true, y_pred, average="micro"),
             recall_score(y_true, y_pred, average="micro"),
-            f1_score(y_true, y_pred, average="micro")
+            f1_score(y_true, y_pred, average="micro"),
         ]
 
         self.performance_metrics.to_csv(path, index=False)
@@ -434,10 +550,10 @@ class MetaLearningModel(object):
     def save_time_metrics(self, path):
 
         """
-            Save time metrics into a .csv file given by path.
+        Save time metrics into a .csv file given by path.
 
-            Arguments:
-                path (str): file's path (.csv). 
+        Arguments:
+            path (str): file's path (.csv).
         """
 
         self.time_metrics = pd.concat(
