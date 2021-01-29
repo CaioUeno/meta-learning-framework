@@ -6,8 +6,8 @@ from sklearn.base import BaseEstimator
 
 X, y = load_boston(return_X_y=True)
 
-class DDDD(BaseEstimator):
 
+class DDDD(BaseEstimator):
     def __init__(self, a):
 
         self.model = DecisionTreeRegressor(max_depth=12)
@@ -23,12 +23,11 @@ class DDDD(BaseEstimator):
     def predict_one(self, x):
         return self.model.predict([x])
 
-class mets(BaseEstimator):
 
+class mets(BaseEstimator):
     def __init__(self):
 
         self.model = DecisionTreeClassifier()
-
 
     def fit(self, X, y):
         self.model.fit(X, y)
@@ -39,16 +38,10 @@ class mets(BaseEstimator):
     def predict_one(self, x):
         return self.model.predict([x])
 
-    
 
-bm = [DDDD('q'), DDDD('r'), DDDD('t')]
+bm = [DDDD("q"), DDDD("r"), DDDD("t")]
 
-mm = MetaLearningModel(
-    mets(),
-    bm,
-    "regression",
-    "score"
-)
+mm = MetaLearningModel(mets(), bm, "regression", "score")
 
 # fit and predict methods
 mm.fit(X, y, cv=10, dynamic_shrink=False)
