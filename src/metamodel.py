@@ -8,6 +8,7 @@ from tqdm import tqdm
 from sklearn.model_selection import cross_val_predict
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+from sklearn.model_selection import train_test_split
 
 # own library
 from utils import mean_absolute_error, minimum_error
@@ -20,16 +21,14 @@ class MetaLearningModel(object):
     to better ensemble base models.
 
     Arguments:
-        meta_model (classifier): base estimator to select base models.
+        meta_model (classifier): classifier to select base models.
         base_models (list): base models list.
         task (str): one option between classification and regression.
         mode (str): one option between binary and score.
-        multi_label (bool): if the given base estimator as
-                            the meta_model supports a multiclass classification task.
+        multi_label (bool): if the given base estimator as the meta_model supports a multiclass classification task - presume it does not.
         combiner (function): function that combines outputs.
-        error_measure (function): function that calculate the error
-                                between the true and predicted label.
-        chooser (function): function that implements the condition to a base model be chosen.
+        error_measure (function): function that calculates the error between the true and predicted label.
+        selector (function): function that implements the condition to a base model be selected given its error (error_measure).
     """
 
     def __init__(
@@ -41,11 +40,11 @@ class MetaLearningModel(object):
         multi_label: bool = False,
         combiner: "<function>" = None,
         error_measure=mean_absolute_error,
-        chooser=minimum_error,
+        selector=minimum_error,
     ):
 
-        if self.check_args(
-            meta_model, base_models, task, mode, combiner, error_measure, chooser
+        if self.__check_args(
+            meta_model, base_models, task, mode, combiner, error_measure, selector
         ):
 
             self.meta_models = meta_model
@@ -54,9 +53,17 @@ class MetaLearningModel(object):
             self.mode = mode
             self.multi_label = multi_label
             self.error_measure = error_measure
-            self.chooser = chooser
+            self.selector = selector
 
-    def check_args(
+        self.X_meta_models = None
+        self.y_meta_models = None
+        self.prediction_base_models_used = None
+        self.prediction_time = 0
+        self.fit_time = {}
+        self.meta_fit_time = 0
+        self.cross_validation_time = {}
+
+    def __check_args(
         self,
         meta_model,
         base_models: list,
@@ -64,7 +71,7 @@ class MetaLearningModel(object):
         mode: str,
         combiner: "<function>",
         error_measure: "<function>",
-        chooser: "<function>",
+        selector: "<function>",
     ):
 
         """
@@ -77,18 +84,18 @@ class MetaLearningModel(object):
             task (str): one option between classification and regression.
             mode (str): one option between binary and score.
             combiner (function): function that combines outputs.
-            error_measure (function): function that calculate the error
-                                    between the true and predicted label.
-            chooser (function): function that implements the condition to a base model be chosen.
+            error_measure (function): function that calculate the error between the true and predicted label.
+            selector (function): function that implements the condition to a base model be selected given its error (error_measure).
 
         Returns:
-            True (boolean): All checks passed.
+            True (boolean): all checks passed.
         """
 
-        # check task arg
+        # check task argument
         if task not in ["classification", "regression"]:
             raise ValueError("Must choose a task: classification or regression.")
 
+        # regression only works with score mode
         if task == "regression" and mode == "binary":
             mode = "score"
             warnings.warn(
@@ -101,7 +108,7 @@ class MetaLearningModel(object):
             or "predict" not in dir(meta_model)
             or "predict_one" not in dir(meta_model)
         ):
-            raise TypeError("meta_model must have method fit(X, y) and predict(X).")
+            raise TypeError("The meta_model must have method fit(X, y) and predict(X).")
 
         for base_model in base_models:
 
@@ -111,9 +118,10 @@ class MetaLearningModel(object):
                 or "predict_one" not in dir(base_model)
             ):
                 raise TypeError(
-                    "base models must have method fit(X, y) and predict(X)."
+                    "Al base models must have method fit(X, y) and predict(X)."
                 )
 
+            # for this specific combination, base models must have a predict method that returns the probabilities
             if (
                 task == "classification"
                 and mode == "score"
@@ -128,6 +136,8 @@ class MetaLearningModel(object):
 
         # define the combiner function if it was not passed as an argument
         if not combiner:
+
+            # standard functions for classification and regression
             self.combiner = statistics.mode if task == "classification" else np.mean
             warnings.warn(
                 "You did not pass a combiner function, then it will use a standard one for the selected task."
@@ -149,7 +159,11 @@ class MetaLearningModel(object):
             y (pd.Series, pd.DataFrame or np.ndarray): labels for each instance on X. It has shape (n_instances, ...) as well.
         """
 
-        # crate meta model training set
+        # check X and y type
+        if not isinstance(X, (pd.DataFrame, np.ndarray)) or not isinstance(y, (pd.core.series.Series, pd.DataFrame, np.ndarray)):
+            raise TypeError("")
+
+        # create meta model training set
         X_meta_models, y_meta_models = self.__cross_validation(
             X, y, cv=cv, verbose=verbose
         )
@@ -157,7 +171,7 @@ class MetaLearningModel(object):
         # check meta model y (targets)
         y_meta_models = self.__check_targets(y_meta_models, dynamic_shrink)
 
-        # for debugging
+        # store meta model's training set
         self.X_meta_models, self.y_meta_models = (
             X_meta_models,
             y_meta_models,
@@ -178,6 +192,10 @@ class MetaLearningModel(object):
         Returns:
             predictions (np.ndarray): an array that contains a label for each instance, using the combiner function.
         """
+
+        # check X type
+        if not isinstance(X, (pd.DataFrame, np.ndarray)):
+            raise TypeError("")
 
         if (
             self.task == "classification"
@@ -222,8 +240,8 @@ class MetaLearningModel(object):
         It fits base models and meta models.
 
         Arguments:
-            X_y_base_models (tuple): training set of base models.
-            X_y_meta_models (tuple): training set of meta model.
+            X_y_base_models (tuple): training set of base models (X, y).
+            X_y_meta_models (tuple): training set of meta model (X, y).
         """
 
         X_base_models, y_base_models = X_y_base_models
@@ -346,7 +364,8 @@ class MetaLearningModel(object):
         1) classification binary mode: Only for classification task. It checks if the base models labeled correctly or not
         every instance.
 
-        2) classification score mode:
+        2) classification score mode: Given an error measure and a selection function,
+        it create the training set for the meta model.
 
         3) regression (only works with score mode): Given an error measure and a selection function,
         it create the training set for the meta model.
@@ -372,14 +391,14 @@ class MetaLearningModel(object):
         }
 
         # cross validation for each base model - store its prediction as well
-        self.base_models_predictions = {}
+        base_models_predictions = {}
         for idx, base_model in (
             tqdm(enumerate(self.base_models))
             if verbose
             else enumerate(self.base_models)
         ):
 
-            self.base_models_predictions[idx] = cross_val_predict(
+            base_models_predictions[idx] = cross_val_predict(
                 base_model, X, y, cv=cv, method=self.__adapt_method()
             )
 
@@ -397,7 +416,7 @@ class MetaLearningModel(object):
 
             for idx, base_model in enumerate(self.base_models):
                 y_target_meta_models[:, idx] = (
-                    self.base_models_predictions[idx] == y
+                    base_models_predictions[idx] == y
                 ).astype(int)
 
             return X, y_target_meta_models
@@ -411,7 +430,7 @@ class MetaLearningModel(object):
             # given an error measure function and a selector funtion, select "only" useful base models
             for idx, base_model in enumerate(self.base_models):
                 y_error_meta_models[:, idx] = self.error_measure(
-                    self.base_models_predictions[idx], lb.fit_transform(y)
+                    base_models_predictions[idx], lb.fit_transform(y)
                 )
 
             return X, self.__selector(y_error_meta_models)
@@ -424,17 +443,13 @@ class MetaLearningModel(object):
             # thus you will lost some instances in the "beginning times" during cross validation
             # (check cross_val_predict sklearn function for time series forecasing cv param)
             y_error_meta_models = np.zeros(
-                (self.base_models_predictions[0].shape[0], len(self.base_models))
+                (base_models_predictions[0].shape[0], len(self.base_models))
             )
 
             # given an error measure function and a selector funtion, select "only" useful base models
             for idx, base_model in enumerate(self.base_models):
-                # y_error_meta_models[:, idx] = self.error_measure(
-                #     self.base_models_predictions[idx],
-                #     y[-y_error_meta_models.shape[0] :],
-                # )
                 y_error_meta_models[:, idx] = self.__measure_error(
-                    self.base_models_predictions[idx],
+                    base_models_predictions[idx],
                     y[-y_error_meta_models.shape[0] :],
                 )
 
@@ -467,11 +482,11 @@ class MetaLearningModel(object):
         (If more than one base model were selected for any instance then it will be a multi-label task).
 
         Arguments:
-            y_meta_models (np.ndarray):
-            dynamic_shrink (bool): flag to remove unused base models.
+            y_meta_models (np.ndarray): Array which contains for each instance which base models were selected. It has shape (n_instances, n_base_models).
+            dynamic_shrink (bool): Flag to remove unused base models.
 
         Returns:
-            treated y_meta_models (np.ndarray): .
+            treated y_meta_models (np.ndarray): Array which contains for each instance which base models were selected after checks.
         """
 
         # flag to remove base models that were not selected for any instance
@@ -511,6 +526,40 @@ class MetaLearningModel(object):
 
         return treated_y_meta_models
 
+    def analysis(self, X, y, validation_split=0.2, random_state=None):
+
+        """
+        
+        """
+
+        # check X and y type
+        if not isinstance(X, (pd.DataFrame, np.ndarray)) or not isinstance(y, (pd.core.series.Series, pd.DataFrame, np.ndarray)):
+            raise TypeError("")
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=validation_split, random_state=random_state)
+
+        predictions = {}
+        for idx, base_model in enumerate(self.base_models):
+            
+            base_model.fit(X_train, y_train)
+            predictions[base_model.name] = base_model.predict(X_test)
+        
+
+        if self.task == 'classification':
+            
+            # accuracy_correlation = / X_test.shape[0]
+            # mislabel_correlation = / X_test.shape[0]
+
+            # return (predictions_correlation_matrix, error_correlation_matrix)
+            pass
+
+        else:
+            predictions_correlation_matrix = pd.DataFrame(predictions).corr()
+            error_correlation_matrix = pd.DataFrame({k:self.__measure_error(predictions[k], y_test) for k in predictions.keys()}).corr()
+
+            return (predictions_correlation_matrix, error_correlation_matrix)
+
+
     def __measure_error(self, y_pred, y_true):
 
         """
@@ -533,7 +582,7 @@ class MetaLearningModel(object):
     def __selector(self, y_error_meta_models):
 
         """
-        Apply the chooser function for each error array.
+        Apply the selector function for each error array.
 
         Arguments:
             y_error_meta_models (np.ndarray): Array which contains errors for each base model for each instance. It has shape (n_instances, n_base_models).
@@ -544,7 +593,7 @@ class MetaLearningModel(object):
 
         target_meta_models = np.zeros(y_error_meta_models.shape)
         for i in range(y_error_meta_models.shape[0]):
-            target_meta_models[i] = self.chooser(y_error_meta_models[i])
+            target_meta_models[i] = self.selector(y_error_meta_models[i])
 
         return target_meta_models
 

@@ -4,7 +4,7 @@ import numpy as np
 import statistics
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-
+import warnings
 
 class NaiveEnsemble(object):
 
@@ -33,7 +33,13 @@ class NaiveEnsemble(object):
 
     def fit(self, X, y, verbose=True):
 
-        """"""
+        """
+        It fits base models.
+
+        Arguments:
+            X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
+            y (pd.Series, pd.DataFrame or np.ndarray): labels for each instance on X. It has shape (n_instances, ...) as well.
+        """
 
         # estimate fit time - start
         self.fit_time = {
@@ -52,26 +58,25 @@ class NaiveEnsemble(object):
 
     def predict(self, X, verbose=True):
 
-        """"""
+        """
+        a
+        """
 
         # estimate prediction time - start
         self.prediction_time = time.time()
 
-        predictions = np.zeros((X.shape[0], len(self.models)))
+        predictions = {}
 
         for idx, model in (
             tqdm(enumerate(self.models)) if verbose else enumerate(self.models)
         ):
-            predictions[:, idx] = model.predict(X)
+            predictions[idx] = model.predict(X)
 
         # estimate prediction time - end
         self.prediction_time = time.time() - self.prediction_time
 
-        if self.task == "classification":
-            return np.array([statistics.mode(prediction) for prediction in predictions])
+        return np.array([self.combiner([predictions[base_model][instance] for base_model in predictions.keys()]) for instance in range(X.shape[0])])
 
-        else:
-            return np.array([np.mean(prediction) for prediction in predictions])
 
     def save_performance_metrics(self, path, y_true, y_pred):
 

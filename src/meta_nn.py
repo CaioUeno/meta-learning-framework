@@ -3,6 +3,8 @@ from tensorflow.keras.layers import Input, Dense, LSTM
 from tensorflow.keras import Model
 import tensorflow.keras.backend as K
 import tensorflow.math as M
+from sklearn.base import BaseEstimator
+from abc import abstractmethod
 
 def custom_loss(y_true, y_pred):
 
@@ -38,3 +40,27 @@ class NeuralNetworkMetaClassifier(object):
         pred[pred < 0.5] = 0
         return pred
         
+class MetaClassifier(BaseEstimator):
+
+    """
+    Abstract class to define methods a meta classifier has to have to be used in this framework.
+
+    Arguments:
+        model: model.
+    """
+
+    def __init__(self, model, **kwargs):
+
+        self.model = model
+
+    @abstractmethod
+    def fit(self, X, y):
+        pass
+
+    @abstractmethod
+    def predict(self, X):
+        pass
+
+    @abstractmethod
+    def predict_one(self, x):
+        pass

@@ -1,18 +1,35 @@
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.datasets import load_boston
 from metamodel import MetaLearningModel
-from sklearn.base import BaseEstimator
+from base_models import BaseModel
+from meta_nn import MetaClassifier
+
+from naive_ensemble import NaiveEnsemble
+
+import numpy as np
 
 X, y = load_boston(return_X_y=True)
 
+class LocalEstimator(BaseModel):
 
-class DDDD(BaseEstimator):
-    def __init__(self, a):
+    def __init__(self, model, name: str):
 
-        self.model = DecisionTreeRegressor(max_depth=12)
-        self.name = a
-        self.a = a
+        super().__init__(model, name)
+
+    def fit(self, X, y):
+        self.model.fit(X, y)
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+    def predict_one(self, x):
+        return self.model.predict([x])
+
+class LocalMetaClassifier(MetaClassifier):
+
+    def __init__(self, model):
+
+        self.model = model
 
     def fit(self, X, y):
         self.model.fit(X, y)
@@ -24,26 +41,23 @@ class DDDD(BaseEstimator):
         return self.model.predict([x])
 
 
-class mets(BaseEstimator):
-    def __init__(self):
+bm = [LocalEstimator(DecisionTreeRegressor(max_depth=2), 'One'),
+      LocalEstimator(DecisionTreeRegressor(max_depth=4), 'Two'),
+      LocalEstimator(DecisionTreeRegressor(max_depth=8), 'Three')]
 
-        self.model = DecisionTreeClassifier()
+mm = MetaLearningModel(LocalMetaClassifier(DecisionTreeClassifier()), bm, "regression", "score")
 
-    def fit(self, X, y):
-        self.model.fit(X, y)
+# a, b = mm.analysis(X, y)
+# print(a)
+# print(b)
 
-    def predict(self, X):
-        return self.model.predict(X)
-
-    def predict_one(self, x):
-        return self.model.predict([x])
-
-
-bm = [DDDD("q"), DDDD("r"), DDDD("t")]
-
-mm = MetaLearningModel(mets(), bm, "regression", "score")
 
 # fit and predict methods
-mm.fit(X, y, cv=10, dynamic_shrink=False)
+mm.fit(X, y, cv=10, dynamic_shrink=True)
 meta_preds = mm.predict(X)
-print(meta_preds - y)
+print(np.mean(abs(meta_preds - y)))
+
+ne = NaiveEnsemble(bm, "regression")
+ne.fit(X, y)
+ne_preds = ne.predict(X)
+print(np.mean(abs(ne_preds - y)))

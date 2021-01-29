@@ -4,6 +4,7 @@ from sktime.classification.base import BaseClassifier
 from scipy.spatial import distance
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.base import BaseEstimator
+from abc import abstractmethod
 
 
 def DTW(a, b):
@@ -77,19 +78,24 @@ class LocalClassifierII(BaseClassifier):
         return self.model.predict(pd.DataFrame({"dim_0": pd.Series(x)}))
 
 
-class LocalEstimator(BaseEstimator):
+class BaseModel(BaseEstimator):
 
     """
     Abstract class to define methods a base model has to have to be used in this framework.
 
     Arguments:
-
+        model: base model.
+        name (str): name for this model - necessary to differenciate each base model.
     """
 
-    def __init__(self, model, name: str, **kwargs):
+    def __init__(self, model, name: str):
 
         self.model = model
-        self.name = name
+
+        if not name:
+            raise TypeError("You must pass a name for every base model.")
+        else:
+            self.name = name
 
     @abstractmethod
     def fit(self, X, y):
