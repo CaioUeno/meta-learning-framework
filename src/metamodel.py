@@ -108,7 +108,7 @@ class MetaLearningModel(object):
             or "predict" not in dir(meta_model)
             or "predict_one" not in dir(meta_model)
         ):
-            raise TypeError("The meta_model must have method fit(X, y) and predict(X).")
+            raise TypeError("The meta_model must have method fit(X, y), predict(X) and predict_one(X).")
 
         for base_model in base_models:
 
@@ -118,7 +118,7 @@ class MetaLearningModel(object):
                 or "predict_one" not in dir(base_model)
             ):
                 raise TypeError(
-                    "Al base models must have method fit(X, y) and predict(X)."
+                    "Al base models must have method fit(X, y), predict(X) and predict_one(X)."
                 )
 
             # for this specific combination, base models must have a predict method that returns the probabilities
@@ -558,7 +558,6 @@ class MetaLearningModel(object):
             error_correlation_matrix = pd.DataFrame({k:self.__measure_error(predictions[k], y_test) for k in predictions.keys()}).corr()
 
             return (predictions_correlation_matrix, error_correlation_matrix)
-
 
     def __measure_error(self, y_pred, y_true):
 
