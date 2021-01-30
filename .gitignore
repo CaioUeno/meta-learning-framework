@@ -1,5 +1,5 @@
-src/__pycache__
-src/.vscode
+meta_learning_framework/__pycache__
+meta_learning_framework/.vscode
 # src/base_models.py
 # src/tsc_example.py
 # src/meta_nn.py

@@ -161,7 +161,7 @@ class MetaLearningModel(object):
 
         # check X and y type
         if not isinstance(X, (pd.DataFrame, np.ndarray)) or not isinstance(y, (pd.core.series.Series, pd.DataFrame, np.ndarray)):
-            raise TypeError("")
+            raise TypeError("X must be as type pd.DataFrame or np.ndarray, and y must be as type pd.core.series.Series, pd.DataFrame or np.ndarray.")
 
         # create meta model training set
         X_meta_models, y_meta_models = self.__cross_validation(
@@ -195,7 +195,7 @@ class MetaLearningModel(object):
 
         # check X type
         if not isinstance(X, (pd.DataFrame, np.ndarray)):
-            raise TypeError("")
+            raise TypeError("X must be as type pd.DataFrame or np.ndarray.")
 
         if (
             self.task == "classification"
@@ -373,7 +373,7 @@ class MetaLearningModel(object):
         Arguments:
             X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
             y (pd.Series, pd.DataFrame or np.ndarray): labels for each instance on X. It has shape (n_instances, ...) as well.
-            cv (): .
+            cv (int, cross-validation generator or iterable): check cross_val_predict sklearn function for more information.
             verbose (boolean): flag to show or not detail information during the process.
 
         Returns:

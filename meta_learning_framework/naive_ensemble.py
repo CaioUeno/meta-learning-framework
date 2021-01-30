@@ -59,7 +59,13 @@ class NaiveEnsemble(object):
     def predict(self, X, verbose=True):
 
         """
-        a
+        Iterate over base models to predict X, and combine their output using the combiner function.
+
+        Arguments:
+            X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
+
+        Returns:
+            predictions (np.ndarray): an array that contains a label for each instance, using the combiner function.
         """
 
         # estimate prediction time - start
@@ -75,7 +81,9 @@ class NaiveEnsemble(object):
         # estimate prediction time - end
         self.prediction_time = time.time() - self.prediction_time
 
-        return np.array([self.combiner([predictions[base_model][instance] for base_model in predictions.keys()]) for instance in range(X.shape[0])])
+        predictions = np.array([self.combiner([predictions[base_model][instance] for base_model in predictions.keys()]) for instance in range(X.shape[0])])
+
+        return predictions
 
 
     def save_performance_metrics(self, path, y_true, y_pred):
