@@ -1,8 +1,9 @@
-src/__pycache__
-src/.vscode
+meta_learning_framework/__pycache__
+meta_learning_framework/.vscode
 # src/base_models.py
 # src/tsc_example.py
 # src/meta_nn.py
 # Univariate_ts
 .ipynb_checkpoints
 .venv
+meta_learning_framework_CAIO_UENO.egg-info
