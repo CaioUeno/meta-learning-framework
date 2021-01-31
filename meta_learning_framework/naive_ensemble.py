@@ -6,6 +6,7 @@ from tqdm import tqdm
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 import warnings
 
+
 class NaiveEnsemble(object):
 
     """
@@ -87,7 +88,17 @@ class NaiveEnsemble(object):
         self.prediction_time = time.time() - self.prediction_time
 
         # combine each base model prediction
-        predictions = np.array([self.combiner([predictions[base_model][instance] for base_model in predictions.keys()]) for instance in range(X.shape[0])])
+        predictions = np.array(
+            [
+                self.combiner(
+                    [
+                        predictions[base_model][instance]
+                        for base_model in predictions.keys()
+                    ]
+                )
+                for instance in range(X.shape[0])
+            ]
+        )
 
         return predictions
 
@@ -118,7 +129,6 @@ class NaiveEnsemble(object):
         self.prediction_time = time.time() - self.prediction_time
 
         return predictions
-
 
     def save_performance_metrics(self, path, y_true, y_pred):
 
@@ -154,9 +164,11 @@ class NaiveEnsemble(object):
         """
 
         # check extension on filename
-        if not filename[-4:] == '.csv':
-            warnings.warn("You did not pass the .csv estension, then it will be autocompleted.")
-            filename = filename + '.csv'
+        if not filename[-4:] == ".csv":
+            warnings.warn(
+                "You did not pass the .csv estension, then it will be autocompleted."
+            )
+            filename = filename + ".csv"
 
         # each base model fit and prediction time
         self.time_metrics = pd.concat(
