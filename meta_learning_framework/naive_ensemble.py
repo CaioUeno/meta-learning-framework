@@ -6,6 +6,7 @@ from tqdm import tqdm
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 import warnings
 
+
 class NaiveEnsemble(object):
 
     """
@@ -31,7 +32,10 @@ class NaiveEnsemble(object):
         else:
             self.combiner = combiner
 
-    def fit(self, X, y, verbose=True):
+        self.fit_time = {}
+        self.prediction_time = 0
+
+    def fit(self, X, y, verbose=True) -> None:
 
         """
         It fits base models.
@@ -39,6 +43,7 @@ class NaiveEnsemble(object):
         Arguments:
             X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
             y (pd.Series, pd.DataFrame or np.ndarray): labels for each instance on X. It has shape (n_instances, ...) as well.
+            verbose (boolean): flag to show or not detail information during the process.
         """
 
         # estimate fit time - start
@@ -56,13 +61,14 @@ class NaiveEnsemble(object):
                 time.time() - self.fit_time["Fit-" + self.models[idx].name]
             )
 
-    def predict(self, X, verbose=True):
+    def predict(self, X, verbose=True) -> np.ndarray:
 
         """
         Iterate over base models to predict X, and combine their output using the combiner function.
 
         Arguments:
             X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
+            verbose (boolean): flag to show or not detail information during the process.
 
         Returns:
             predictions (np.ndarray): an array that contains a label for each instance, using the combiner function.
@@ -81,10 +87,48 @@ class NaiveEnsemble(object):
         # estimate prediction time - end
         self.prediction_time = time.time() - self.prediction_time
 
-        predictions = np.array([self.combiner([predictions[base_model][instance] for base_model in predictions.keys()]) for instance in range(X.shape[0])])
+        # combine each base model prediction
+        predictions = np.array(
+            [
+                self.combiner(
+                    [
+                        predictions[base_model][instance]
+                        for base_model in predictions.keys()
+                    ]
+                )
+                for instance in range(X.shape[0])
+            ]
+        )
 
         return predictions
 
+    def individual_predict(self, X, verbose=True) -> dict:
+
+        """
+        Iterate over base models to predict X individually.
+
+        Arguments:
+            X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
+            verbose (boolean): flag to show or not detail information during the process.
+
+        Returns:
+            predictions (dict): a dictionary which contains the predictions for each base model using its name as key.
+        """
+
+        # estimate prediction time - start
+        self.prediction_time = time.time()
+
+        predictions = {}
+
+        for idx, model in (
+            tqdm(enumerate(self.models)) if verbose else enumerate(self.models)
+        ):
+            predictions[model.name] = model.predict(X)
+
+        # estimate prediction time - end
+        self.prediction_time = time.time() - self.prediction_time
+
+        return predictions
 
     def save_performance_metrics(self, path, y_true, y_pred):
 
@@ -110,20 +154,34 @@ class NaiveEnsemble(object):
         ]
         self.performance_metrics.to_csv(path, index=False)
 
-    def save_time_metrics(self, path):
+    def save_time_metrics(self, filename) -> bool:
 
         """
-        Save time metrics into a .csv file given by path.
+        Save time metrics into a .csv file given by filename.
 
         Arguments:
-            path (str): file's path (.csv).
+            filename (str): filename (.csv).
         """
 
+        # check extension on filename
+        if not filename[-4:] == ".csv":
+            warnings.warn(
+                "You did not pass the .csv estension, then it will be autocompleted."
+            )
+            filename = filename + ".csv"
+
+        # each base model fit and prediction time
         self.time_metrics = pd.concat(
             [
                 pd.DataFrame([self.fit_time]).T,
                 pd.DataFrame([{"Prediction": self.prediction_time}]).T,
             ]
         )
+
+        # renaming column
         self.time_metrics.rename(columns={0: "Time (secs)"}, inplace=True)
-        self.time_metrics.to_csv(path)
+
+        # saving
+        self.time_metrics.to_csv(filename)
+
+        return True

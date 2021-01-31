@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="meta_learning_framework_CAIO_UENO", # Replace with your own username
-    version="0.0.1",
+    version="0.0.3",
     author="Caio Ueno",
     author_email="caiol.ueno@gmail.com",
     description="A framework to apply a meta learning algorithm (learn how to ensemble models)",

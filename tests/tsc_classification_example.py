@@ -12,10 +12,14 @@ from sktime.classification.frequency_based import RandomIntervalSpectralForest
 from sktime.classification.interval_based import TimeSeriesForest
 from sktime.classification.shapelet_based import ShapeletTransformClassifier
 
-from base_models import BaseModel
-from meta_nn import MetaClassifier
-from metamodel import MetaLearningModel
-from naive_ensemble import NaiveEnsemble
+# from base_models import BaseModel
+# from meta_nn import MetaClassifier
+# from metamodel import MetaLearningModel
+from meta_learning_framework.base_models import BaseModel
+from meta_learning_framework.meta_classifier import MetaClassifier
+from meta_learning_framework.metamodel import MetaLearningModel
+
+from meta_learning_framework.naive_ensemble import NaiveEnsemble
 import os
 import sys
 
@@ -147,15 +151,15 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
 
 if __name__ == "__main__":
 
-    # select dataset
+    # select a sktime dataset
     dataset_name = sys.argv[1]
 
     # train and test sets
     X_train, y_train = load_from_tsfile_to_dataframe(
-        "../Univariate_ts/" + dataset_name + "/" + dataset_name + "_TRAIN.ts"
+        "Univariate_ts/" + dataset_name + "/" + dataset_name + "_TRAIN.ts"
     )
     X_test, y_test = load_from_tsfile_to_dataframe(
-        "../Univariate_ts/" + dataset_name + "/" + dataset_name + "_TRAIN.ts"
+        "Univariate_ts/" + dataset_name + "/" + dataset_name + "_TRAIN.ts"
     )
 
     # str label to int label
@@ -178,11 +182,12 @@ if __name__ == "__main__":
         TSKNN_ED(),
     ]
 
-    # meta model
+    # meta model initialization
     input_shape = X_train.values[0][0].shape[0]
     MetaModel = NeuralNetworkMetaClassifier(input_shape, len(bm_list), 16)
 
-    mm = MetaLearningModel(
+    # meta learning framework initialization
+    mm_framework = MetaLearningModel(
         MetaModel,
         bm_list,
         "classification",
@@ -191,28 +196,28 @@ if __name__ == "__main__":
     )
 
     # fit and predict methods
-    mm.fit(X_train, y_train, cv=5, dynamic_shrink=False)
-    meta_preds = mm.predict(X_test.values)
+    mm_framework.fit(X_train, y_train, cv=5, dynamic_shrink=False)
+    meta_preds = mm_framework.predict(X_test.values)
 
-    # saving metrics
-    mm.save_performance_metrics(
-        "../Univariate_ts/" + dataset_name + "/MetaModel_performance_metrics.csv",
-        y_test,
-        meta_preds,
+    # # saving metrics
+    # mm.save_performance_metrics(
+    #     "Univariate_ts/" + dataset_name + "/MetaModel_performance_metrics.csv",
+    #     y_test,
+    #     meta_preds,
+    # )
+    mm_framework.save_time_metrics(
+        "Univariate_ts/" + dataset_name + "/MetaModel_time_metrics.csv"
     )
-    mm.save_time_metrics(
-        "../Univariate_ts/" + dataset_name + "/MetaModel_time_metrics.csv"
-    )
-    mm.save_base_models_used(
-        "../Univariate_ts/" + dataset_name + "/MetaModel_base_models_used.npy"
+    mm_framework.save_base_models_used(
+        "Univariate_ts/" + dataset_name + "/MetaModel_base_models_used.npy"
     )
 
     # ======= #
     # ======= #
 
-    # naive ensemble
 
-    # reinitialize base models
+
+    # reinitialize list of base classifiers
     bm_list = [
         LocalClassifier(IndividualBOSS(random_state=11), "IndividualBOSS"),
         LocalClassifier(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
@@ -237,12 +242,12 @@ if __name__ == "__main__":
     ne.fit(X_train, y_train)
     ne_preds = ne.predict(X_test)
 
-    # saving metrics
-    ne.save_performance_metrics(
-        "../Univariate_ts/" + dataset_name + "/NaiveEnsemble_performance_metrics.csv",
-        y_test,
-        ne_preds,
-    )
+    # # saving metrics
+    # ne.save_performance_metrics(
+    #     "Univariate_ts/" + dataset_name + "/NaiveEnsemble_performance_metrics.csv",
+    #     y_test,
+    #     ne_preds,
+    # )
     ne.save_time_metrics(
-        "../Univariate_ts/" + dataset_name + "/NaiveEnsemble_time_metrics.csv"
+        "Univariate_ts/" + dataset_name + "/NaiveEnsemble_time_metrics.csv"
     )

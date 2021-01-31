@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import statistics
 import time
-import warnings
 from tqdm import tqdm
+import warnings
 
 from sklearn.model_selection import cross_val_predict
 from sklearn.preprocessing import LabelBinarizer
@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from sklearn.model_selection import train_test_split
 
 # own library
-from utils import mean_absolute_error, minimum_error
+from meta_learning_framework.utils import absolute_error, minimum_error
 
 
 class MetaLearningModel(object):
@@ -39,7 +39,7 @@ class MetaLearningModel(object):
         mode: str,
         multi_label: bool = False,
         combiner: "<function>" = None,
-        error_measure=mean_absolute_error,
+        error_measure=absolute_error,
         selector=minimum_error,
     ):
 
@@ -58,10 +58,10 @@ class MetaLearningModel(object):
         self.X_meta_models = None
         self.y_meta_models = None
         self.prediction_base_models_used = None
-        self.prediction_time = 0
+        self.cross_validation_time = {}
         self.fit_time = {}
         self.meta_fit_time = 0
-        self.cross_validation_time = {}
+        self.prediction_time = 0
 
     def __check_args(
         self,
@@ -72,7 +72,7 @@ class MetaLearningModel(object):
         combiner: "<function>",
         error_measure: "<function>",
         selector: "<function>",
-    ):
+    ) -> bool:
 
         """
         Check some arguments to initialiaze the class properly. Also, it does
@@ -108,7 +108,9 @@ class MetaLearningModel(object):
             or "predict" not in dir(meta_model)
             or "predict_one" not in dir(meta_model)
         ):
-            raise TypeError("The meta_model must have method fit(X, y), predict(X) and predict_one(X).")
+            raise TypeError(
+                "The meta_model must have method fit(X, y), predict(X) and predict_one(X)."
+            )
 
         for base_model in base_models:
 
@@ -148,7 +150,7 @@ class MetaLearningModel(object):
         # everything is all right!
         return True
 
-    def fit(self, X, y, cv=10, verbose=True, dynamic_shrink=True):
+    def fit(self, X, y, cv=10, verbose=True, dynamic_shrink=True) -> None:
 
         """
         First, it creates meta model's training set using a cross-validation method.
@@ -157,19 +159,32 @@ class MetaLearningModel(object):
         Arguments:
             X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
             y (pd.Series, pd.DataFrame or np.ndarray): labels for each instance on X. It has shape (n_instances, ...) as well.
+            cv (int, cross-validation generator or iterable): check cross_val_predict sklearn function for more information.
+            verbose (boolean): flag to show or not detail information during the process.
+            dynamic_shrink (boolean): flag to remove or not unselected base models in meta model training set creation.
         """
 
         # check X and y type
-        if not isinstance(X, (pd.DataFrame, np.ndarray)) or not isinstance(y, (pd.core.series.Series, pd.DataFrame, np.ndarray)):
-            raise TypeError("X must be as type pd.DataFrame or np.ndarray, and y must be as type pd.core.series.Series, pd.DataFrame or np.ndarray.")
+        if not isinstance(X, (pd.DataFrame, np.ndarray)) or not isinstance(
+            y, (pd.core.series.Series, pd.DataFrame, np.ndarray)
+        ):
+            raise TypeError(
+                "X must be as type pd.DataFrame or np.ndarray, and y must be as type pd.core.series.Series, pd.DataFrame or np.ndarray."
+            )
 
         # create meta model training set
         X_meta_models, y_meta_models = self.__cross_validation(
             X, y, cv=cv, verbose=verbose
         )
 
+        if verbose:
+            print("Cross-validation done and meta model training set created.")
+
         # check meta model y (targets)
         y_meta_models = self.__check_targets(y_meta_models, dynamic_shrink)
+
+        if verbose:
+            print("Meta model targets checked.")
 
         # store meta model's training set
         self.X_meta_models, self.y_meta_models = (
@@ -180,7 +195,10 @@ class MetaLearningModel(object):
         # fit both levels - meta model and base models
         self.__fit_both_levels((X, y), (X_meta_models, y_meta_models))
 
-    def predict(self, X, verbose=True):
+        if verbose:
+            print("Base models and meta model(s) fitted and ready to prediction.")
+
+    def predict(self, X, verbose=True) -> np.ndarray:
 
         """
         The meta model predicts for each instance which base models are going to be selected.
@@ -188,6 +206,7 @@ class MetaLearningModel(object):
 
         Arguments:
             X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
+            verbose (boolean): flag to show or not detail information during the process.
 
         Returns:
             predictions (np.ndarray): an array that contains a label for each instance, using the combiner function.
@@ -234,7 +253,7 @@ class MetaLearningModel(object):
 
         return predictions
 
-    def __fit_both_levels(self, X_y_base_models: tuple, X_y_meta_models: tuple):
+    def __fit_both_levels(self, X_y_base_models: tuple, X_y_meta_models: tuple) -> None:
 
         """
         It fits base models and meta models.
@@ -250,7 +269,7 @@ class MetaLearningModel(object):
         X_meta_models, y_meta_models = X_y_meta_models
         self.__fit_meta_models(X_meta_models, y_meta_models)
 
-    def __fit_base_models(self, X, y):
+    def __fit_base_models(self, X, y) -> None:
 
         """
         It fits base models.
@@ -265,6 +284,7 @@ class MetaLearningModel(object):
             "Fit-" + self.base_models[i].name: time.time()
             for i in range(len(self.base_models))
         }
+
         for idx, base_model in enumerate(self.base_models):
 
             base_model.fit(X, y)
@@ -274,7 +294,9 @@ class MetaLearningModel(object):
                 time.time() - self.fit_time["Fit-" + self.base_models[idx].name]
             )
 
-    def __predict_base_models(self, x, selected_base_models):
+    def __predict_base_models(
+        self, x: np.ndarray, selected_base_models: np.ndarray
+    ) -> list:
 
         """
         Given a instance x, and a mask selected_base_models - it contains which base models were
@@ -282,6 +304,7 @@ class MetaLearningModel(object):
 
         Arguments:
             x (np.ndarray): a single instance.
+            selected_base_models (np.ndarray): array with length n_base_models, which contains which base models were selected to predict this instance.
 
         Returns:
             predictions (list): A list which contains only the ** selected ** base models predictions for the given instance.
@@ -294,7 +317,7 @@ class MetaLearningModel(object):
 
         return predictions
 
-    def __fit_meta_models(self, X, y):
+    def __fit_meta_models(self, X, y) -> None:
 
         """
         It fits meta models.
@@ -306,6 +329,7 @@ class MetaLearningModel(object):
 
         # single meta model that supports a multi-label task
         self.meta_fit_time = time.time()
+
         if self.multi_label == True:
             self.meta_models.fit(X, y)
 
@@ -319,9 +343,10 @@ class MetaLearningModel(object):
             else:
                 for idx, meta_model in enumerate(self.meta_models):
                     meta_model.fit(X, y[:, idx])
+
         self.meta_fit_time = time.time() - self.meta_fit_time
 
-    def __predict_meta_models(self, x):
+    def __predict_meta_models(self, x: np.ndarray) -> np.ndarray:
 
         """
         Given a instance x, it returns the meta models prediction for it.
@@ -352,7 +377,7 @@ class MetaLearningModel(object):
 
         return predictions
 
-    def __cross_validation(self, X, y, cv, verbose):
+    def __cross_validation(self, X, y, cv, verbose: bool) -> tuple:
 
         """
         Cross-validation for each base model given a cv (check cross_val_predict sklearn function).
@@ -419,7 +444,7 @@ class MetaLearningModel(object):
                     base_models_predictions[idx] == y
                 ).astype(int)
 
-            return X, y_target_meta_models
+            return (X, y_target_meta_models)
 
         elif self.task == "classification" and self.mode == "score":
 
@@ -433,7 +458,7 @@ class MetaLearningModel(object):
                     base_models_predictions[idx], lb.fit_transform(y)
                 )
 
-            return X, self.__selector(y_error_meta_models)
+            return (X, self.__selector(y_error_meta_models))
 
         # regression task that depends on an error measure and a selection function
         else:
@@ -453,11 +478,12 @@ class MetaLearningModel(object):
                     y[-y_error_meta_models.shape[0] :],
                 )
 
-            return X[-y_error_meta_models.shape[0] :], self.__selector(
-                y_error_meta_models
+            return (
+                X[-y_error_meta_models.shape[0] :],
+                self.__selector(y_error_meta_models),
             )
 
-    def __adapt_method(self):
+    def __adapt_method(self) -> str:
 
         """
         Decide which method is the correct one based on task and mode to pass to cross_val_predict function.
@@ -473,7 +499,9 @@ class MetaLearningModel(object):
         else:
             return "predict_proba"
 
-    def __check_targets(self, y_meta_models, dynamic_shrink):
+    def __check_targets(
+        self, y_meta_models: np.ndarray, dynamic_shrink: bool
+    ) -> np.ndarray:
 
         """
         It checks if there is any base model that was not selected for any instance.
@@ -526,47 +554,55 @@ class MetaLearningModel(object):
 
         return treated_y_meta_models
 
-    def analysis(self, X, y, validation_split=0.2, random_state=None):
+    def analysis(self, X, y, validation_split=0.2, random_state=None) -> tuple:
 
         """
-        
+        .
         """
 
         # check X and y type
-        if not isinstance(X, (pd.DataFrame, np.ndarray)) or not isinstance(y, (pd.core.series.Series, pd.DataFrame, np.ndarray)):
+        if not isinstance(X, (pd.DataFrame, np.ndarray)) or not isinstance(
+            y, (pd.core.series.Series, pd.DataFrame, np.ndarray)
+        ):
             raise TypeError("")
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=validation_split, random_state=random_state)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=validation_split, random_state=random_state
+        )
 
         predictions = {}
         for idx, base_model in enumerate(self.base_models):
-            
+
             base_model.fit(X_train, y_train)
             predictions[base_model.name] = base_model.predict(X_test)
-        
 
-        if self.task == 'classification':
-            
+        if self.task == "classification":
+
             # accuracy_correlation = / X_test.shape[0]
             # mislabel_correlation = / X_test.shape[0]
 
-            # return (predictions_correlation_matrix, error_correlation_matrix)
+            # return (accuracy_correlation, mislabel_correlation)
             pass
 
         else:
             predictions_correlation_matrix = pd.DataFrame(predictions).corr()
-            error_correlation_matrix = pd.DataFrame({k:self.__measure_error(predictions[k], y_test) for k in predictions.keys()}).corr()
+            error_correlation_matrix = pd.DataFrame(
+                {
+                    k: self.__measure_error(predictions[k], y_test)
+                    for k in predictions.keys()
+                }
+            ).corr()
 
             return (predictions_correlation_matrix, error_correlation_matrix)
 
-    def __measure_error(self, y_pred, y_true):
+    def __measure_error(self, y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
 
         """
         Calculate the error for each instance given the error measure function.
 
         Arguments:
             y_pred (np.ndarray): array which contains the prediction for each instance.
-            y_true (np.ndarray): array which contains the groundtruth for each instance.
+            y_true (np.ndarray): array which contains the ground truth for each instance.
 
         Returns:
             y_error (np.ndarray): array which contains the error for each instance.
@@ -578,7 +614,7 @@ class MetaLearningModel(object):
 
         return y_error
 
-    def __selector(self, y_error_meta_models):
+    def __selector(self, y_error_meta_models: np.ndarray) -> np.ndarray:
 
         """
         Apply the selector function for each error array.
@@ -621,30 +657,63 @@ class MetaLearningModel(object):
 
         self.performance_metrics.to_csv(path, index=False)
 
-    def save_base_models_used(self, path):
-
-        np.save(path, self.prediction_base_models_used)
-
-    def save_time_metrics(self, path):
+    def save_base_models_used(self, filename: str) -> bool:
 
         """
-        Save time metrics into a .csv file given by path.
+        Save a numpy array which contains for each instance how many base models were used.
 
         Arguments:
-            path (str): file's path (.csv).
+            filename (str): filename (.npy).
         """
 
+        # check extension on filename
+        if not filename[-4:] == ".npy":
+            warnings.warn(
+                "You did not pass the .npy estension, then it will be autocompleted."
+            )
+            filename = filename + ".npy"
+
+        # saving
+        np.save(path, self.prediction_base_models_used)
+
+        return True
+
+    def save_time_metrics(self, filename: str) -> bool:
+
+        """
+        Save time metrics into a .csv file given by filename.
+
+        Arguments:
+            filename (str): filename (.csv).
+        """
+
+        # check extension on filename
+        if not filename[-4:] == ".csv":
+            warnings.warn(
+                "You did not pass the .csv estension, then it will be autocompleted."
+            )
+            filename = filename + ".csv"
+
+        # each base model fit and cross-validation time
         self.time_metrics = pd.concat(
             [
                 pd.DataFrame([self.fit_time]).T,
                 pd.DataFrame([self.cross_validation_time]).T,
             ]
         )
+
+        # meta model fit and prediction time
         self.time_metrics = pd.concat(
             [self.time_metrics, pd.DataFrame([{"MetaModel-Fit": self.meta_fit_time}]).T]
         )
         self.time_metrics = pd.concat(
             [self.time_metrics, pd.DataFrame([{"Prediction": self.prediction_time}]).T]
         )
+
+        # renaming column
         self.time_metrics.rename(columns={0: "Time (secs)"}, inplace=True)
-        self.time_metrics.to_csv(path)
+
+        # saving
+        self.time_metrics.to_csv(filename)
+
+        return True
