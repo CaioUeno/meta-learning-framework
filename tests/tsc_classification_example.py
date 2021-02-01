@@ -45,14 +45,26 @@ import sys
 
 # Base Classifiers
 
+
 class TSKNN_ED(BaseModel):
+
+    """
+    KNeighborsClassifier using Euclidean Distance.
+    """
+
     def __init__(self):
+
         self.model = KNeighborsClassifier(n_neighbors=1, metric="euclidean")
         self.name = "TSKNN_ED"
-        # self.classes_ = [i for i in range(2)]
+        self.classes_ = (
+            []
+        )  # this attribute is necessary if you are going to use classification+score
 
     def fit(self, X, y):
+        
+        # filling this attribute (classification+score)
         self.classes_ = [c for c in set(y)]
+        
         self.model.fit(
             np.array([s[0].values for s in X.values.tolist()]), [int(i) for i in y]
         )
@@ -71,9 +83,14 @@ class TSKNN_ED(BaseModel):
     def predict_proba_one(self, x):
         return self.model.predict_proba(x[0].values.reshape(1, -1))
 
-class TSKNN_DTW(BaseModel):
-    def __init__(self):
 
+class TSKNN_DTW(BaseModel):
+
+    """
+    KNeighborsClassifier using Distance Time Warping (DTW).
+    """
+
+    def __init__(self):
         def DTW(a, b):
             an = a.size
             bn = b.size
@@ -90,13 +107,18 @@ class TSKNN_DTW(BaseModel):
                     )
                     cumdist[ai + 1, bi + 1] = pointwise_distance[ai, bi] + minimum_cost
             return cumdist[an, bn]
-        
+
         self.model = KNeighborsClassifier(n_neighbors=1, metric=DTW)
         self.name = "TSKNN_DTW"
-        # self.classes_ = [i for i in range(2)]
+        self.classes_ = (
+            []
+        )  # this attribute is necessary if you are going to use classification+score
 
     def fit(self, X, y):
+
+        # filling this attribute (classification+score)
         self.classes_ = [c for c in set(y)]
+        
         self.model.fit(
             np.array([s[0].values for s in X.values.tolist()]), [int(i) for i in y]
         )
@@ -115,16 +137,26 @@ class TSKNN_DTW(BaseModel):
     def predict_proba_one(self, x):
         return self.model.predict_proba(x[0].values.reshape(1, -1))
 
+
 class LocalClassifier(BaseModel):
+
+    """
+    Class to encapsule sktime classifiers.
+    """
+
     def __init__(self, model, name: str):
         self.model = model
         self.name = name
-        # self.classes_ = [i for i in range(2)]
+        self.classes_ = (
+            []
+        )  # this attribute is necessary if you are going to use classification+score
 
     def fit(self, X, y):
+
+        # filling this attribute (classification+score)
         self.classes_ = [c for c in set(y)]
+
         self.model.fit(X, y)
-        
 
     def predict(self, X):
         return np.array([int(pred) for pred in self.model.predict(X)])
@@ -138,15 +170,26 @@ class LocalClassifier(BaseModel):
     def predict_proba_one(self, x):
         return self.model.predict_proba(pd.DataFrame({"dim_0": pd.Series(x)}))[0]
 
+
 # Meta Classifier
 
+
 class NeuralNetworkMetaClassifier(MetaClassifier):
-    
+
+    """
+    Neural network based classifier. It supports a multi-label clasification task.
+    """
+
     def __init__(self, in_shape, out_shape, lstm_cells, batch_size=4, epochs=20):
 
-        inputs = Input(shape=(1, in_shape,))
+        inputs = Input(
+            shape=(
+                1,
+                in_shape,
+            )
+        )
         lstm = LSTM(lstm_cells)(inputs)
-        out = Dense(out_shape, activation='sigmoid')(lstm)
+        out = Dense(out_shape, activation="sigmoid")(lstm)
 
         self.meta_clf = Model(inputs=inputs, outputs=out)
 
@@ -156,33 +199,44 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
             mult = M.multiply(abs_diff, y_pred)
             custom_loss = abs_diff + mult
             return custom_loss
-        
-        self.meta_clf.compile(optimizer='rmsprop', loss=custom_loss)
+
+        self.meta_clf.compile(optimizer="rmsprop", loss=custom_loss)
 
         self.batch_size = batch_size
         self.epochs = epochs
-    
+
     def fit(self, X, y):
-        
-        X_array = np.array(X['dim_0'].apply(lambda x: x.values).tolist())
-        self.meta_clf.fit(X_array.reshape(X_array.shape[0], 1, X_array.shape[1]), y,
-                         batch_size=self.batch_size, epochs=self.epochs)
+
+        X_array = np.array(X["dim_0"].apply(lambda x: x.values).tolist())
+
+        self.meta_clf.fit(
+            X_array.reshape(X_array.shape[0], 1, X_array.shape[1]),
+            y,
+            batch_size=self.batch_size,
+            epochs=self.epochs,
+        )
 
     def predict(self, X):
 
         pred = self.meta_clf.predict(X[0].values.reshape(1, 1, -1))[0].ravel()
+
+        # using 0.5 as threshold
         pred[pred >= 0.5] = 1
         pred[pred < 0.5] = 0
+
         return pred
 
     def predict_one(self, x):
 
         x = x[0].values
         pred = self.meta_clf.predict(x.reshape(1, 1, x.shape[0]))[0]
+        
+        # using 0.5 as threshold
         pred[pred >= 0.5] = 1
         pred[pred < 0.5] = 0
 
         return pred
+
 
 if __name__ == "__main__":
 
@@ -207,12 +261,17 @@ if __name__ == "__main__":
         LocalClassifier(IndividualBOSS(random_state=11), "IndividualBOSS"),
         LocalClassifier(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
         LocalClassifier(MUSE(random_state=11), "MUSE"),
-        LocalClassifier(TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"),
+        LocalClassifier(
+            TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"
+        ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
         LocalClassifier(WEASEL(random_state=11), "WEASEL"),
         LocalClassifier(ProximityForest(random_state=11), "ProximityForest"),
         LocalClassifier(ProximityTree(random_state=11), "ProximityTree"),
-        LocalClassifier(RandomIntervalSpectralForest(random_state=11), "RandomIntervalSpectralForest"),
+        LocalClassifier(
+            RandomIntervalSpectralForest(random_state=11),
+            "RandomIntervalSpectralForest",
+        ),
         LocalClassifier(TimeSeriesForest(random_state=11), "TimeSeriesForest"),
         TSKNN_DTW(),
         TSKNN_ED(),
@@ -229,7 +288,6 @@ if __name__ == "__main__":
         "classification",
         mode,
         multi_label=True,
-        error_measure=proba_mean_error
     )
 
     # fit and predict methods
@@ -237,7 +295,7 @@ if __name__ == "__main__":
     meta_preds = mm_framework.predict(X_test.values)
 
     # metrics
-    print('Meta model report:')
+    print("Meta model report:")
     print(classification_report(y_test, meta_preds))
 
     # save time metrics and number of base classifiers used
@@ -255,13 +313,16 @@ if __name__ == "__main__":
         LocalClassifier(IndividualBOSS(random_state=11), "IndividualBOSS"),
         LocalClassifier(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
         LocalClassifier(MUSE(random_state=11), "MUSE"),
-        LocalClassifier(TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"),
+        LocalClassifier(
+            TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"
+        ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
         LocalClassifier(WEASEL(random_state=11), "WEASEL"),
         LocalClassifier(ProximityForest(random_state=11), "ProximityForest"),
         LocalClassifier(ProximityTree(random_state=11), "ProximityTree"),
         LocalClassifier(
-            RandomIntervalSpectralForest(random_state=11), "RandomIntervalSpectralForest"
+            RandomIntervalSpectralForest(random_state=11),
+            "RandomIntervalSpectralForest",
         ),
         LocalClassifier(TimeSeriesForest(random_state=11), "TimeSeriesForest"),
         TSKNN_DTW(),
@@ -276,7 +337,7 @@ if __name__ == "__main__":
     ne_preds = ne.predict(X_test)
 
     # metrics
-    print('Naive ensemble report:')
+    print("Naive ensemble report:")
     print(classification_report(y_test, ne_preds))
 
     ne.save_time_metrics(
@@ -284,9 +345,12 @@ if __name__ == "__main__":
     )
 
     # evaluate base models individual performance
-    print('individual performance report:')
+    print("individual performance report:")
     individual_preds = ne.individual_predict(X_test)
 
     for model_name in individual_preds.keys():
-        print(model_name + ' accuracy: ' + str(accuracy_score(y_test, individual_preds[model_name])))
-
+        print(
+            model_name
+            + " accuracy: "
+            + str(accuracy_score(y_test, individual_preds[model_name]))
+        )

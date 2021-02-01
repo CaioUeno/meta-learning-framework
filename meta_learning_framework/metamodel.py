@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from sklearn.model_selection import train_test_split
 
 # own library
-from meta_learning_framework.utils import absolute_error, minimum_error
+from meta_learning_framework.utils import absolute_error, proba_mean_error, minimum_error
 
 
 class MetaLearningModel(object):
@@ -39,7 +39,7 @@ class MetaLearningModel(object):
         mode: str,
         multi_label: bool = False,
         combiner: "<function>" = None,
-        error_measure=absolute_error,
+        error_measure: "<function>" = None,
         selector=minimum_error,
     ):
 
@@ -52,7 +52,6 @@ class MetaLearningModel(object):
             self.task = task
             self.mode = mode
             self.multi_label = multi_label
-            self.error_measure = error_measure
             self.selector = selector
 
         self.X_meta_models = None
@@ -135,6 +134,27 @@ class MetaLearningModel(object):
                 raise TypeError(
                     "If classification task and score mode chosen then base models must have methods predict_proba(X) and predict_proba_one(x)."
                 )
+
+        # check error measure function
+        if not error_measure:
+
+            # sclassification and binary mode does not use a error measure function
+            if task == "classification" and mode == "binary":
+                self.error_measure = None
+
+            elif task == "classification" and mode == "score":
+                self.error_measure = proba_mean_error
+
+            # regression (only works with score mode)
+            else:
+                self.error_measure = absolute_error
+
+            warnings.warn(
+                "You did not pass a error_measure function, then it will use a standard one for the selected task and mode."
+            )
+
+        else:
+            self.error_measure = error_measure
 
         # define the combiner function if it was not passed as an argument
         if not combiner:
