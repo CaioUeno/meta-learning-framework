@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from sklearn.model_selection import train_test_split
 
 # own library
-from meta_learning_framework.utils import absolute_error, minimum_error
+from meta_learning_framework.utils import absolute_error, proba_mean_error, minimum_error
 
 
 class MetaLearningModel(object):
@@ -39,7 +39,7 @@ class MetaLearningModel(object):
         mode: str,
         multi_label: bool = False,
         combiner: "<function>" = None,
-        error_measure=absolute_error,
+        error_measure: "<function>" = None,
         selector=minimum_error,
     ):
 
@@ -52,7 +52,6 @@ class MetaLearningModel(object):
             self.task = task
             self.mode = mode
             self.multi_label = multi_label
-            self.error_measure = error_measure
             self.selector = selector
 
         self.X_meta_models = None
@@ -136,6 +135,27 @@ class MetaLearningModel(object):
                     "If classification task and score mode chosen then base models must have methods predict_proba(X) and predict_proba_one(x)."
                 )
 
+        # check error measure function
+        if not error_measure:
+
+            # sclassification and binary mode does not use a error measure function
+            if task == "classification" and mode == "binary":
+                self.error_measure = None
+
+            elif task == "classification" and mode == "score":
+                self.error_measure = proba_mean_error
+
+            # regression (only works with score mode)
+            else:
+                self.error_measure = absolute_error
+
+            warnings.warn(
+                "You did not pass a error_measure function, then it will use a standard one for the selected task and mode."
+            )
+
+        else:
+            self.error_measure = error_measure
+
         # define the combiner function if it was not passed as an argument
         if not combiner:
 
@@ -150,7 +170,7 @@ class MetaLearningModel(object):
         # everything is all right!
         return True
 
-    def fit(self, X, y, cv=10, verbose=True, dynamic_shrink=True) -> None:
+    def fit(self, X, y, cv=10, verbose=True, dynamic_shrink=True,  n_jobs: int = 1) -> None:
 
         """
         First, it creates meta model's training set using a cross-validation method.
@@ -174,7 +194,7 @@ class MetaLearningModel(object):
 
         # create meta model training set
         X_meta_models, y_meta_models = self.__cross_validation(
-            X, y, cv=cv, verbose=verbose
+            X, y, cv=cv, verbose=verbose,  n_jobs=n_jobs
         )
 
         if verbose:
@@ -377,7 +397,7 @@ class MetaLearningModel(object):
 
         return predictions
 
-    def __cross_validation(self, X, y, cv, verbose: bool) -> tuple:
+    def __cross_validation(self, X, y, cv, verbose: bool, n_jobs: int) -> tuple:
 
         """
         Cross-validation for each base model given a cv (check cross_val_predict sklearn function).
@@ -424,7 +444,7 @@ class MetaLearningModel(object):
         ):
 
             base_models_predictions[idx] = cross_val_predict(
-                base_model, X, y, cv=cv, method=self.__adapt_method()
+                base_model, X, y, cv=cv, n_jobs=n_jobs, method=self.__adapt_method()
             )
 
             # save training time for each base model
@@ -674,7 +694,7 @@ class MetaLearningModel(object):
             filename = filename + ".npy"
 
         # saving
-        np.save(path, self.prediction_base_models_used)
+        np.save(filename, self.prediction_base_models_used)
 
         return True
 

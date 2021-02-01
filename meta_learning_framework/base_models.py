@@ -1,5 +1,5 @@
-from sklearn.base import BaseEstimator
 from abc import abstractmethod
+from sklearn.base import BaseEstimator
 
 
 class BaseModel(BaseEstimator):
@@ -20,6 +20,8 @@ class BaseModel(BaseEstimator):
             raise TypeError("You must pass a name for every base model.")
         else:
             self.name = name
+        
+        # self.classes_ = 0
 
     @abstractmethod
     def fit(self, X, y):
