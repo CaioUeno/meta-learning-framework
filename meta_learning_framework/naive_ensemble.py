@@ -46,6 +46,9 @@ class NaiveEnsemble(object):
             verbose (boolean): flag to show or not detail information during the process.
         """
 
+        if verbose:
+            print("Starting fitting base models:")
+
         # estimate fit time - start
         self.fit_time = {
             "Fit-" + self.models[i].name: time.time() for i in range(len(self.models))
@@ -60,6 +63,9 @@ class NaiveEnsemble(object):
             self.fit_time["Fit-" + self.models[idx].name] = (
                 time.time() - self.fit_time["Fit-" + self.models[idx].name]
             )
+        
+        if verbose:
+            print("All base models fitted and ready to prediction.")
 
     def predict(self, X, verbose=True) -> np.ndarray:
 
@@ -73,6 +79,9 @@ class NaiveEnsemble(object):
         Returns:
             predictions (np.ndarray): an array that contains a label for each instance, using the combiner function.
         """
+
+        if verbose:
+            print("Starting base models predict:")
 
         # estimate prediction time - start
         self.prediction_time = time.time()
@@ -114,6 +123,9 @@ class NaiveEnsemble(object):
         Returns:
             predictions (dict): a dictionary which contains the predictions for each base model using its name as key.
         """
+
+        if verbose:
+            print("Starting base models predict:")
 
         # estimate prediction time - start
         self.prediction_time = time.time()
