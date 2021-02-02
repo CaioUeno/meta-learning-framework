@@ -545,7 +545,7 @@ class MetaLearningModel(object):
 
             # list of base models to remove
             models_to_remove = []
-            
+
             for i in range(sum_up.shape[0]):
 
                 # base model at index i were never selected

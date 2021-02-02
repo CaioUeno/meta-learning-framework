@@ -290,7 +290,7 @@ if __name__ == "__main__":
     )
 
     # fit and predict methods
-    mm_framework.fit(X_train, y_train, cv=2, dynamic_shrink=True, n_jobs=-1)
+    mm_framework.fit(X_train, y_train, cv=10, dynamic_shrink=False, n_jobs=1)
     meta_preds = mm_framework.predict(X_test.values)
 
     # metrics
@@ -316,14 +316,14 @@ if __name__ == "__main__":
             TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"
         ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
-        LocalClassifier(WEASEL(random_state=11), "WEASEL"),
-        LocalClassifier(ProximityForest(random_state=11), "ProximityForest"),
-        LocalClassifier(ProximityTree(random_state=11), "ProximityTree"),
+        LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
+        LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
+        LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
         LocalClassifier(
-            RandomIntervalSpectralForest(random_state=11),
+            RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
             "RandomIntervalSpectralForest",
         ),
-        LocalClassifier(TimeSeriesForest(random_state=11), "TimeSeriesForest"),
+        LocalClassifier(TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"),
         TSKNN_DTW(),
         TSKNN_ED(),
     ]
