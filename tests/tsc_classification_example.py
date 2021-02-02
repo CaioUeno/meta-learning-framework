@@ -54,7 +54,7 @@ class TSKNN_ED(BaseModel):
 
     def __init__(self):
 
-        self.model = KNeighborsClassifier(n_neighbors=1, metric="euclidean")
+        self.model = KNeighborsClassifier(n_neighbors=1, metric="euclidean", n_jobs=-1)
         self.name = "TSKNN_ED"
         self.classes_ = (
             []
@@ -70,9 +70,7 @@ class TSKNN_ED(BaseModel):
         )
 
     def predict(self, X):
-        return [
-            int(i) for i in self.model.predict([s[0].values for s in X.values.tolist()])
-        ]
+        return self.model.predict([s[0].values for s in X.values.tolist()])
 
     def predict_one(self, x):
         return int(self.model.predict(x[0].values.reshape(1, -1))[0])
@@ -91,6 +89,8 @@ class TSKNN_DTW(BaseModel):
     """
 
     def __init__(self):
+
+        # DTW function between two time series a and b
         def DTW(a, b):
             an = a.size
             bn = b.size
@@ -108,7 +108,8 @@ class TSKNN_DTW(BaseModel):
                     cumdist[ai + 1, bi + 1] = pointwise_distance[ai, bi] + minimum_cost
             return cumdist[an, bn]
 
-        self.model = KNeighborsClassifier(n_neighbors=1, metric=DTW)
+        # define metric arugment as DTW
+        self.model = KNeighborsClassifier(n_neighbors=1, metric=DTW, n_jobs=-1)
         self.name = "TSKNN_DTW"
         self.classes_ = (
             []
@@ -124,9 +125,7 @@ class TSKNN_DTW(BaseModel):
         )
 
     def predict(self, X):
-        return [
-            int(i) for i in self.model.predict([s[0].values for s in X.values.tolist()])
-        ]
+        return self.model.predict([s[0].values for s in X.values.tolist()])
 
     def predict_one(self, x):
         return int(self.model.predict(x[0].values.reshape(1, -1))[0])
@@ -265,14 +264,14 @@ if __name__ == "__main__":
             TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"
         ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
-        LocalClassifier(WEASEL(random_state=11), "WEASEL"),
-        LocalClassifier(ProximityForest(random_state=11), "ProximityForest"),
-        LocalClassifier(ProximityTree(random_state=11), "ProximityTree"),
+        LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
+        LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
+        LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
         LocalClassifier(
-            RandomIntervalSpectralForest(random_state=11),
+            RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
             "RandomIntervalSpectralForest",
         ),
-        LocalClassifier(TimeSeriesForest(random_state=11), "TimeSeriesForest"),
+        LocalClassifier(TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"),
         TSKNN_DTW(),
         TSKNN_ED(),
     ]
@@ -291,7 +290,7 @@ if __name__ == "__main__":
     )
 
     # fit and predict methods
-    mm_framework.fit(X_train, y_train, cv=5, dynamic_shrink=False, n_jobs=-1)
+    mm_framework.fit(X_train, y_train, cv=2, dynamic_shrink=True, n_jobs=-1)
     meta_preds = mm_framework.predict(X_test.values)
 
     # metrics
