@@ -543,6 +543,9 @@ class MetaLearningModel(object):
             # sum over rows to return how many times each base model were selected
             sum_up = np.sum(y_meta_models, axis=0)
 
+            # list of base models to remove
+            models_to_remove = []
+
             for i in range(sum_up.shape[0]):
 
                 # base model at index i were never selected
@@ -552,7 +555,11 @@ class MetaLearningModel(object):
                         + self.base_models[i].name
                         + " was never selected, thus it was removed from set."
                     )
-                    self.base_models.remove(self.base_models[i])
+                    models_to_remove.append(i)
+            
+            # remove in reverse order to not harm the order
+            for i in sorted(models_to_remove, reverse=True):
+                del self.base_models[i]
 
             treated_y_meta_models = y_meta_models[:, sum_up != 0]
 
