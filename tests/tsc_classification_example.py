@@ -61,10 +61,10 @@ class TSKNN_ED(BaseModel):
         )  # this attribute is necessary if you are going to use classification+score
 
     def fit(self, X, y):
-        
+
         # filling this attribute (classification+score)
         self.classes_ = [c for c in set(y)]
-        
+
         self.model.fit(
             np.array([s[0].values for s in X.values.tolist()]), [int(i) for i in y]
         )
@@ -119,7 +119,7 @@ class TSKNN_DTW(BaseModel):
 
         # filling this attribute (classification+score)
         self.classes_ = [c for c in set(y)]
-        
+
         self.model.fit(
             np.array([s[0].values for s in X.values.tolist()]), [int(i) for i in y]
         )
@@ -179,16 +179,23 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
     Neural network based classifier. It supports a multi-label clasification task.
     """
 
-    def __init__(self, in_shape, out_shape, lstm_cells, batch_size=4, epochs=20):
+    def __init__(self, in_shape, lstm_cells, batch_size=4, epochs=20):
+
+        self.in_shape = in_shape
+        self.lstm_cells = lstm_cells
+        self.batch_size = batch_size
+        self.epochs = epochs
+
+    def fit(self, X, y):
 
         inputs = Input(
             shape=(
                 1,
-                in_shape,
+                self.in_shape,
             )
         )
-        lstm = LSTM(lstm_cells)(inputs)
-        out = Dense(out_shape, activation="sigmoid")(lstm)
+        lstm = LSTM(self.lstm_cells)(inputs)
+        out = Dense(y.shape[1], activation="sigmoid")(lstm)
 
         self.meta_clf = Model(inputs=inputs, outputs=out)
 
@@ -200,11 +207,6 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
             return custom_loss
 
         self.meta_clf.compile(optimizer="rmsprop", loss=custom_loss)
-
-        self.batch_size = batch_size
-        self.epochs = epochs
-
-    def fit(self, X, y):
 
         X_array = np.array(X["dim_0"].apply(lambda x: x.values).tolist())
 
@@ -229,7 +231,7 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
 
         x = x[0].values
         pred = self.meta_clf.predict(x.reshape(1, 1, x.shape[0]))[0]
-        
+
         # using 0.5 as threshold
         pred[pred >= 0.5] = 1
         pred[pred < 0.5] = 0
@@ -271,14 +273,16 @@ if __name__ == "__main__":
             RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
             "RandomIntervalSpectralForest",
         ),
-        LocalClassifier(TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"),
+        LocalClassifier(
+            TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
+        ),
         TSKNN_DTW(),
         TSKNN_ED(),
     ]
 
     # meta model initialization
     input_shape = X_train.values[0][0].shape[0]
-    MetaModel = NeuralNetworkMetaClassifier(input_shape, len(bm_list), 16)
+    MetaModel = NeuralNetworkMetaClassifier(input_shape, 16)
 
     # meta learning framework initialization
     mm_framework = MetaLearningModel(
@@ -290,7 +294,7 @@ if __name__ == "__main__":
     )
 
     # fit and predict methods
-    mm_framework.fit(X_train, y_train, cv=10, dynamic_shrink=False, n_jobs=1)
+    mm_framework.fit(X_train, y_train, cv=10, dynamic_shrink=True, n_jobs=1)
     meta_preds = mm_framework.predict(X_test.values)
 
     # metrics
@@ -323,7 +327,9 @@ if __name__ == "__main__":
             RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
             "RandomIntervalSpectralForest",
         ),
-        LocalClassifier(TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"),
+        LocalClassifier(
+            TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
+        ),
         TSKNN_DTW(),
         TSKNN_ED(),
     ]
