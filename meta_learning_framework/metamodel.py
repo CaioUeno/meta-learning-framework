@@ -11,7 +11,11 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from sklearn.model_selection import train_test_split
 
 # own library
-from meta_learning_framework.utils import absolute_error, proba_mean_error, minimum_error
+from meta_learning_framework.utils import (
+    absolute_error,
+    proba_mean_error,
+    minimum_error,
+)
 
 
 class MetaLearningModel(object):
@@ -170,7 +174,9 @@ class MetaLearningModel(object):
         # everything is all right!
         return True
 
-    def fit(self, X, y, cv=10, verbose=True, dynamic_shrink=True,  n_jobs: int = 1) -> None:
+    def fit(
+        self, X, y, cv=10, verbose=True, dynamic_shrink=True, n_jobs: int = 1
+    ) -> None:
 
         """
         First, it creates meta model's training set using a cross-validation method.
@@ -194,7 +200,7 @@ class MetaLearningModel(object):
 
         # create meta model training set
         X_meta_models, y_meta_models = self.__cross_validation(
-            X, y, cv=cv, verbose=verbose,  n_jobs=n_jobs
+            X, y, cv=cv, verbose=verbose, n_jobs=n_jobs
         )
 
         if verbose:
@@ -426,59 +432,86 @@ class MetaLearningModel(object):
             y (pd.Series, pd.DataFrame or np.ndarray): Array which contains for each instance which base models were selected. It has shape (n_instances, n_base_models).
         """
 
-        if verbose:
-            print("Starting cross-validation:")
+        if isinstance(cv, int):
 
-        # save training time for each base model
-        self.cross_validation_time = {
-            "CV-" + self.base_models[i].name: time.time()
-            for i in range(len(self.base_models))
-        }
-
-        # cross validation for each base model - store its prediction as well
-        base_models_predictions = {}
-        for idx, base_model in (
-            tqdm(enumerate(self.base_models))
-            if verbose
-            else enumerate(self.base_models)
-        ):
-
-            base_models_predictions[idx] = cross_val_predict(
-                base_model, X, y, cv=cv, n_jobs=n_jobs, method=self.__adapt_method()
-            )
+            if verbose:
+                print("Starting cross-validation:")
 
             # save training time for each base model
-            self.cross_validation_time["CV-" + self.base_models[idx].name] = (
-                time.time()
-                - self.cross_validation_time["CV-" + self.base_models[idx].name]
+            self.cross_validation_time = {
+                "CV-" + self.base_models[i].name: time.time()
+                for i in range(len(self.base_models))
+            }
+
+            # cross validation for each base model - store its prediction as well
+            base_models_predictions = {}
+            for idx, base_model in (
+                tqdm(enumerate(self.base_models))
+                if verbose
+                else enumerate(self.base_models)
+            ):
+
+                base_models_predictions[idx] = cross_val_predict(
+                    base_model, X, y, cv=cv, n_jobs=n_jobs, method=self.__adapt_method()
+                )
+
+                # save training time for each base model
+                self.cross_validation_time["CV-" + self.base_models[idx].name] = (
+                    time.time()
+                    - self.cross_validation_time["CV-" + self.base_models[idx].name]
+                )
+
+            X_meta_models = X.copy()
+            y_true = y.copy()
+
+        # float between 0,1
+        else:
+            # check if between[0, 1]
+
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=cv, random_state=0
             )
+
+            # fit base models using a data fraction
+            base_models_predictions = {}
+            for idx, base_model in (
+                tqdm(enumerate(self.base_models))
+                if verbose
+                else enumerate(self.base_models)
+            ):
+
+                base_model.fit(X_train, y_train)
+                base_models_predictions[idx] = base_model.predict(X_test)
+
+            X_meta_models = X_test.copy()
+            y_true = y_test.copy()
 
         # decide which approach to follow based on task and mode
         if self.mode == "binary":
 
             # binary multi-label task dataset - if prediction is equal to true label, then base model is selected
-            y_target_meta_models = np.zeros((y.shape[0], len(self.base_models)))
+            y_target_meta_models = np.zeros((y_true.shape[0], len(self.base_models)))
 
             for idx, base_model in enumerate(self.base_models):
                 y_target_meta_models[:, idx] = (
-                    base_models_predictions[idx] == y
+                    base_models_predictions[idx] == y_true
                 ).astype(int)
 
-            return (X, y_target_meta_models)
+            return (X_meta_models, y_target_meta_models)
 
         elif self.task == "classification" and self.mode == "score":
 
             lb = LabelBinarizer()
 
-            y_error_meta_models = np.zeros((y.shape[0], len(self.base_models)))
+            y_error_meta_models = np.zeros((y_true.shape[0], len(self.base_models)))
 
             # given an error measure function and a selector funtion, select "only" useful base models
             for idx, base_model in enumerate(self.base_models):
                 y_error_meta_models[:, idx] = self.__measure_error(
-                    base_models_predictions[idx], lb.fit_transform(y)
+                    base_models_predictions[idx], lb.fit_transform(y_true)
                 )
 
-            return (X, self.__selector(y_error_meta_models))
+            return (X_meta_models, self.__selector(y_error_meta_models))
 
         # regression task that depends on an error measure and a selection function
         else:
@@ -487,19 +520,17 @@ class MetaLearningModel(object):
             # if you are working on a time series forecasing task it must keep the time order,
             # thus you will lost some instances in the "beginning times" during cross validation
             # (check cross_val_predict sklearn function for time series forecasing cv param)
-            y_error_meta_models = np.zeros(
-                (base_models_predictions[0].shape[0], len(self.base_models))
-            )
+            y_error_meta_models = np.zeros((y_true.shape[0], len(self.base_models)))
 
             # given an error measure function and a selector funtion, select "only" useful base models
             for idx, base_model in enumerate(self.base_models):
                 y_error_meta_models[:, idx] = self.__measure_error(
                     base_models_predictions[idx],
-                    y[-y_error_meta_models.shape[0] :],
+                    y_true,
                 )
 
             return (
-                X[-y_error_meta_models.shape[0] :],
+                X_meta_models,
                 self.__selector(y_error_meta_models),
             )
 
@@ -556,7 +587,7 @@ class MetaLearningModel(object):
                         + " was never selected, thus it was removed from set."
                     )
                     models_to_remove.append(i)
-            
+
             # remove in reverse order to not harm the order
             for i in sorted(models_to_remove, reverse=True):
                 del self.base_models[i]
