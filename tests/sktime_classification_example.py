@@ -28,6 +28,8 @@ from sktime.classification.shapelet_based import ShapeletTransformClassifier
 # sklearn KNeighbors
 from sklearn.neighbors import KNeighborsClassifier
 
+from sklearn.model_selection import KFold
+
 # metrics
 from sklearn.metrics import classification_report, accuracy_score
 
@@ -267,17 +269,17 @@ if __name__ == "__main__":
         ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
         LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
-        LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
-        LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
-        LocalClassifier(
-            RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
-            "RandomIntervalSpectralForest",
-        ),
-        LocalClassifier(
-            TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
-        ),
-        TSKNN_DTW(),
-        TSKNN_ED(),
+        # LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
+        # LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
+        # LocalClassifier(
+        #     RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
+        #     "RandomIntervalSpectralForest",
+        # ),
+        # LocalClassifier(
+        #     TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
+        # ),
+        # TSKNN_DTW(),
+        # TSKNN_ED(),
     ]
 
     # meta model initialization
@@ -292,9 +294,11 @@ if __name__ == "__main__":
         mode,
         multi_label=True,
     )
-
+    # aaa = KFold(n_splits=2)
+    # import pdb; pdb.set_trace()
+    
     # fit and predict methods
-    mm_framework.fit(X_train, y_train, cv=10, dynamic_shrink=True, n_jobs=1)
+    mm_framework.fit(X_train, y_train, cv=[([0,1,2,3], [4,5,6])], dynamic_shrink=True, n_jobs=1)
     meta_preds = mm_framework.predict(X_test.values)
 
     # metrics
@@ -321,18 +325,18 @@ if __name__ == "__main__":
         ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
         LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
-        LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
-        LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
-        LocalClassifier(
-            RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
-            "RandomIntervalSpectralForest",
-        ),
-        LocalClassifier(
-            TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
-        ),
-        TSKNN_DTW(),
-        TSKNN_ED(),
-    ]
+    #     LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
+    #     LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
+    #     LocalClassifier(
+    #         RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
+    #         "RandomIntervalSpectralForest",
+    #     ),
+    #     LocalClassifier(
+    #         TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
+    #     ),
+    #     TSKNN_DTW(),
+    #     TSKNN_ED(),
+    # ]
 
     # naive ensemble object
     ne = NaiveEnsemble(bm_list, "classification")

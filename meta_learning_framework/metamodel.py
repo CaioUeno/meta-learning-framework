@@ -474,7 +474,7 @@ class MetaLearningModel(object):
 
             # given an error measure function and a selector funtion, select "only" useful base models
             for idx, base_model in enumerate(self.base_models):
-                y_error_meta_models[:, idx] = self.error_measure(
+                y_error_meta_models[:, idx] = self.__measure_error(
                     base_models_predictions[idx], lb.fit_transform(y)
                 )
 
