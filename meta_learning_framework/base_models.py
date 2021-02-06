@@ -21,7 +21,7 @@ class BaseModel(BaseEstimator):
         else:
             self.name = name
         
-        # self.classes_ = 0
+        self.classes_ = []
 
     @abstractmethod
     def fit(self, X, y):

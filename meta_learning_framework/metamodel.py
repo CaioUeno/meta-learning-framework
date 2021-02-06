@@ -62,6 +62,7 @@ class MetaLearningModel(object):
         self.y_meta_models = None
         self.prediction_base_models_used = None
         self.cross_validation_time = {}
+        self.partial_fit_time = {}
         self.fit_time = {}
         self.meta_fit_time = 0
         self.prediction_time = 0
@@ -185,7 +186,8 @@ class MetaLearningModel(object):
         Arguments:
             X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
             y (pd.Series, pd.DataFrame or np.ndarray): labels for each instance on X. It has shape (n_instances, ...) as well.
-            cv (int, cross-validation generator or iterable): check cross_val_predict sklearn function for more information.
+            cv (int or float): if int check cross_val_predict sklearn function for more information,
+                               if float means the validation portion of X to be used to create the meta model training set.
             verbose (boolean): flag to show or not detail information during the process.
             dynamic_shrink (boolean): flag to remove or not unselected base models in meta model training set creation.
         """
@@ -198,8 +200,15 @@ class MetaLearningModel(object):
                 "X must be as type pd.DataFrame or np.ndarray, and y must be as type pd.core.series.Series, pd.DataFrame or np.ndarray."
             )
 
+        # check cv type and value
+        if not isinstance(cv, (int, float)):
+            raise TypeError("cv must be as type int or float.")
+
+        if isinstance(cv, float) and not (cv > 0 and cv < 1):
+            raise TypeError("If cv passed as float, then it must be in (0, 1) range.")
+
         # create meta model training set
-        X_meta_models, y_meta_models = self.__cross_validation(
+        X_meta_models, y_meta_models = self.cross_validation(
             X, y, cv=cv, verbose=verbose, n_jobs=n_jobs
         )
 
@@ -207,7 +216,7 @@ class MetaLearningModel(object):
             print("Cross-validation done and meta model training set created.")
 
         # check meta model y (targets)
-        y_meta_models = self.__check_targets(y_meta_models, dynamic_shrink)
+        y_meta_models = self.check_targets(y_meta_models, dynamic_shrink)
 
         if verbose:
             print("Meta model targets checked.")
@@ -219,7 +228,7 @@ class MetaLearningModel(object):
         )
 
         # fit both levels - meta model and base models
-        self.__fit_both_levels((X, y), (X_meta_models, y_meta_models))
+        self.fit_both_levels((X, y), (X_meta_models, y_meta_models))
 
         if verbose:
             print("Base models and meta model(s) fitted and ready to prediction.")
@@ -259,7 +268,7 @@ class MetaLearningModel(object):
         for idx, x in tqdm(enumerate(X)) if verbose else enumerate(X):
 
             # meta model prediction tells which base models to use
-            selected_base_models = self.__predict_meta_models(x)
+            selected_base_models = self.predict_meta_models(x)
 
             # metric
             self.prediction_base_models_used[idx] = np.sum(selected_base_models)
@@ -270,7 +279,7 @@ class MetaLearningModel(object):
 
             # combine selected base models predictions in one final prediction
             final_prediction = self.combiner(
-                self.__predict_base_models(x, selected_base_models)
+                self.predict_base_models(x, selected_base_models)
             )
             predictions[idx] = final_prediction
 
@@ -279,7 +288,7 @@ class MetaLearningModel(object):
 
         return predictions
 
-    def __fit_both_levels(self, X_y_base_models: tuple, X_y_meta_models: tuple) -> None:
+    def fit_both_levels(self, X_y_base_models: tuple, X_y_meta_models: tuple) -> None:
 
         """
         It fits base models and meta models.
@@ -290,12 +299,12 @@ class MetaLearningModel(object):
         """
 
         X_base_models, y_base_models = X_y_base_models
-        self.__fit_base_models(X_base_models, y_base_models)
+        self.fit_base_models(X_base_models, y_base_models)
 
         X_meta_models, y_meta_models = X_y_meta_models
-        self.__fit_meta_models(X_meta_models, y_meta_models)
+        self.fit_meta_models(X_meta_models, y_meta_models)
 
-    def __fit_base_models(self, X, y) -> None:
+    def fit_base_models(self, X, y) -> None:
 
         """
         It fits base models.
@@ -320,7 +329,7 @@ class MetaLearningModel(object):
                 time.time() - self.fit_time["Fit-" + self.base_models[idx].name]
             )
 
-    def __predict_base_models(
+    def predict_base_models(
         self, x: np.ndarray, selected_base_models: np.ndarray
     ) -> list:
 
@@ -343,7 +352,7 @@ class MetaLearningModel(object):
 
         return predictions
 
-    def __fit_meta_models(self, X, y) -> None:
+    def fit_meta_models(self, X, y) -> None:
 
         """
         It fits meta models.
@@ -372,7 +381,7 @@ class MetaLearningModel(object):
 
         self.meta_fit_time = time.time() - self.meta_fit_time
 
-    def __predict_meta_models(self, x: np.ndarray) -> np.ndarray:
+    def predict_meta_models(self, x: np.ndarray) -> np.ndarray:
 
         """
         Given a instance x, it returns the meta models prediction for it.
@@ -403,10 +412,11 @@ class MetaLearningModel(object):
 
         return predictions
 
-    def __cross_validation(self, X, y, cv, verbose: bool, n_jobs: int) -> tuple:
+    def cross_validation(self, X, y, cv, verbose: bool, n_jobs: int) -> tuple:
 
         """
         Cross-validation for each base model given a cv (check cross_val_predict sklearn function).
+        If float passed it becomes a 1-fold using cv as the portion of X to be used as validation.
         It is actually creating a training set for the meta model (X, y).
         X is the instances as they are, but y is which base models should be used to predict each instance.
 
@@ -424,7 +434,7 @@ class MetaLearningModel(object):
         Arguments:
             X (pd.DataFrame or np.ndarray): an object with shape (n_instances, ...).
             y (pd.Series, pd.DataFrame or np.ndarray): labels for each instance on X. It has shape (n_instances, ...) as well.
-            cv (int, cross-validation generator or iterable): check cross_val_predict sklearn function for more information.
+            cv (int or float): if int check cross_val_predict sklearn function for more information, if float means the validation portion.
             verbose (boolean): flag to show or not detail information during the process.
 
         Returns:
@@ -464,15 +474,24 @@ class MetaLearningModel(object):
             X_meta_models = X.copy()
             y_true = y.copy()
 
-        # float between 0,1
+        # float in [0, 1] range
         else:
-            # check if between[0, 1]
 
-            X_train, X_test, y_train, y_test = train_test_split(
+            if verbose:
+                print("Starting partial-fit:")
+
+            # save training time for each base model
+            self.partial_fit_time = {
+                "PF-" + self.base_models[i].name: time.time()
+                for i in range(len(self.base_models))
+            }
+
+            # split data using cv as a validation set fraction
+            X_train, X_valid, y_train, y_valid = train_test_split(
                 X, y, test_size=cv, random_state=0
             )
 
-            # fit base models using a data fraction
+            # fit base models using a data fraction only once
             base_models_predictions = {}
             for idx, base_model in (
                 tqdm(enumerate(self.base_models))
@@ -481,10 +500,21 @@ class MetaLearningModel(object):
             ):
 
                 base_model.fit(X_train, y_train)
-                base_models_predictions[idx] = base_model.predict(X_test)
 
-            X_meta_models = X_test.copy()
-            y_true = y_test.copy()
+                # save training time for each base model
+                self.partial_fit_time["PF-" + self.base_models[idx].name] = (
+                    time.time()
+                    - self.partial_fit_time["PF-" + self.base_models[idx].name]
+                )
+
+                base_models_predictions[idx] = base_model.predict(X_valid)
+
+            #
+            X_meta_models = X_valid.copy()
+            y_true = y_valid.copy()
+
+        # now, extract information of correctness from y_pred for each base model
+        # and create meta model training set
 
         # decide which approach to follow based on task and mode
         if self.mode == "binary":
@@ -516,10 +546,6 @@ class MetaLearningModel(object):
         # regression task that depends on an error measure and a selection function
         else:
 
-            # note that it can have a different shape (less than the original)
-            # if you are working on a time series forecasing task it must keep the time order,
-            # thus you will lost some instances in the "beginning times" during cross validation
-            # (check cross_val_predict sklearn function for time series forecasing cv param)
             y_error_meta_models = np.zeros((y_true.shape[0], len(self.base_models)))
 
             # given an error measure function and a selector funtion, select "only" useful base models
@@ -529,10 +555,7 @@ class MetaLearningModel(object):
                     y_true,
                 )
 
-            return (
-                X_meta_models,
-                self.__selector(y_error_meta_models),
-            )
+            return (X_meta_models, self.__selector(y_error_meta_models))
 
     def __adapt_method(self) -> str:
 
@@ -550,7 +573,7 @@ class MetaLearningModel(object):
         else:
             return "predict_proba"
 
-    def __check_targets(
+    def check_targets(
         self, y_meta_models: np.ndarray, dynamic_shrink: bool
     ) -> np.ndarray:
 
@@ -624,7 +647,7 @@ class MetaLearningModel(object):
         ):
             raise TypeError("")
 
-        X_train, X_test, y_train, y_test = train_test_split(
+        X_train, X_valid, y_train, y_valid = train_test_split(
             X, y, test_size=validation_split, random_state=random_state
         )
 
@@ -632,12 +655,12 @@ class MetaLearningModel(object):
         for idx, base_model in enumerate(self.base_models):
 
             base_model.fit(X_train, y_train)
-            predictions[base_model.name] = base_model.predict(X_test)
+            predictions[base_model.name] = base_model.predict(X_valid)
 
         if self.task == "classification":
 
-            # accuracy_correlation = / X_test.shape[0]
-            # mislabel_correlation = / X_test.shape[0]
+            # accuracy_correlation = / X_valid.shape[0]
+            # mislabel_correlation = / X_valid.shape[0]
 
             # return (accuracy_correlation, mislabel_correlation)
             pass
@@ -646,7 +669,7 @@ class MetaLearningModel(object):
             predictions_correlation_matrix = pd.DataFrame(predictions).corr()
             error_correlation_matrix = pd.DataFrame(
                 {
-                    k: self.__measure_error(predictions[k], y_test)
+                    k: self.__measure_error(predictions[k], y_valid)
                     for k in predictions.keys()
                 }
             ).corr()
