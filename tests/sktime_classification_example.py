@@ -197,7 +197,7 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
             )
         )
         lstm = LSTM(self.lstm_cells)(inputs)
-        out = Dense(y.shape[1], activation="sigmoid")(lstm)
+        out = Dense(y.shape[1], activation="softmax")(lstm)
 
         self.meta_clf = Model(inputs=inputs, outputs=out)
 
@@ -208,7 +208,7 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
             custom_loss = abs_diff + mult
             return custom_loss
 
-        self.meta_clf.compile(optimizer="rmsprop", loss=custom_loss)
+        self.meta_clf.compile(optimizer="rmsprop", loss=custom_loss, metrics=["accuracy"])
 
         X_array = np.array(X["dim_0"].apply(lambda x: x.values).tolist())
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
         "Univariate_ts/" + dataset_name + "/" + dataset_name + "_TRAIN.ts"
     )
     X_test, y_test = load_from_tsfile_to_dataframe(
-        "Univariate_ts/" + dataset_name + "/" + dataset_name + "_TRAIN.ts"
+        "Univariate_ts/" + dataset_name + "/" + dataset_name + "_TEST.ts"
     )
 
     # str label to int label
@@ -269,17 +269,17 @@ if __name__ == "__main__":
         ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
         LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
-        # LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
-        # LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
-        # LocalClassifier(
-        #     RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
-        #     "RandomIntervalSpectralForest",
-        # ),
-        # LocalClassifier(
-        #     TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
-        # ),
-        # TSKNN_DTW(),
-        # TSKNN_ED(),
+        LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
+        LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
+        LocalClassifier(
+            RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
+            "RandomIntervalSpectralForest",
+        ),
+        LocalClassifier(
+            TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
+        ),
+        TSKNN_DTW(),
+        TSKNN_ED(),
     ]
 
     # meta model initialization
@@ -294,11 +294,9 @@ if __name__ == "__main__":
         mode,
         multi_label=True,
     )
-    # aaa = KFold(n_splits=2)
-    # import pdb; pdb.set_trace()
     
     # fit and predict methods
-    mm_framework.fit(X_train, y_train, cv=[([0,1,2,3], [4,5,6])], dynamic_shrink=True, n_jobs=1)
+    mm_framework.fit(X_train, y_train, cv=0.3, dynamic_shrink=True, n_jobs=1)
     meta_preds = mm_framework.predict(X_test.values)
 
     # metrics
@@ -325,18 +323,18 @@ if __name__ == "__main__":
         ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
         LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
-    #     LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
-    #     LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
-    #     LocalClassifier(
-    #         RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
-    #         "RandomIntervalSpectralForest",
-    #     ),
-    #     LocalClassifier(
-    #         TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
-    #     ),
-    #     TSKNN_DTW(),
-    #     TSKNN_ED(),
-    # ]
+        LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
+        LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
+        LocalClassifier(
+            RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
+            "RandomIntervalSpectralForest",
+        ),
+        LocalClassifier(
+            TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
+        ),
+        TSKNN_DTW(),
+        TSKNN_ED(),
+    ]
 
     # naive ensemble object
     ne = NaiveEnsemble(bm_list, "classification")
