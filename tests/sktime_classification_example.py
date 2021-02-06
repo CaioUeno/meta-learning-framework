@@ -262,15 +262,15 @@ if __name__ == "__main__":
     # list of base classifiers
     bm_list = [
         LocalClassifier(IndividualBOSS(random_state=11), "IndividualBOSS"),
-        # LocalClassifier(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
+        LocalClassifier(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
         LocalClassifier(MUSE(random_state=11), "MUSE"),
-        # LocalClassifier(
-        #     TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"
-        # ),
+        LocalClassifier(
+            TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"
+        ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
-        # LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
-    #     LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
-    #     LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
+        LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
+        LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
+        LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
         LocalClassifier(
             RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
             "RandomIntervalSpectralForest",
@@ -278,7 +278,7 @@ if __name__ == "__main__":
         LocalClassifier(
             TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
         ),
-        # TSKNN_DTW(),
+        TSKNN_DTW(),
         TSKNN_ED(),
     ]
 
@@ -316,15 +316,15 @@ if __name__ == "__main__":
     # reinitialize list of base classifiers
     bm_list = [
         LocalClassifier(IndividualBOSS(random_state=11), "IndividualBOSS"),
-        # LocalClassifier(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
+        LocalClassifier(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
         LocalClassifier(MUSE(random_state=11), "MUSE"),
-        # LocalClassifier(
-        #     TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"
-        # ),
+        LocalClassifier(
+            TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"
+        ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
-        # LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
-    #     LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
-    #     LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
+        LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
+        LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
+        LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
         LocalClassifier(
             RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
             "RandomIntervalSpectralForest",
@@ -332,7 +332,7 @@ if __name__ == "__main__":
         LocalClassifier(
             TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
         ),
-        # TSKNN_DTW(),
+        TSKNN_DTW(),
         TSKNN_ED(),
     ]
 
