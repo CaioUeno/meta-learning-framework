@@ -176,7 +176,7 @@ class MetaLearningModel(object):
         return True
 
     def fit(
-        self, X, y, cv=10, verbose=True, dynamic_shrink=True, n_jobs: int = 1
+        self, X, y, cv=10, refit=False, verbose=True, dynamic_shrink=True, n_jobs: int = 1
     ) -> None:
 
         """
@@ -206,6 +206,9 @@ class MetaLearningModel(object):
 
         if isinstance(cv, float) and not (cv > 0 and cv < 1):
             raise TypeError("If cv passed as float, then it must be in (0, 1) range.")
+        
+        
+        self.refit = refit if isinstance(cv, float) else True
 
         # create meta model training set
         X_meta_models, y_meta_models = self.cross_validation(
@@ -298,8 +301,9 @@ class MetaLearningModel(object):
             X_y_meta_models (tuple): training set of meta model (X, y).
         """
 
-        X_base_models, y_base_models = X_y_base_models
-        self.fit_base_models(X_base_models, y_base_models)
+        if self.refit:
+            X_base_models, y_base_models = X_y_base_models
+            self.fit_base_models(X_base_models, y_base_models)
 
         X_meta_models, y_meta_models = X_y_meta_models
         self.fit_meta_models(X_meta_models, y_meta_models)
