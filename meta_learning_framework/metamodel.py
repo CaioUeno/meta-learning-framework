@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import statistics
-import time
+from time import time
 from tqdm import tqdm
 import warnings
 
@@ -265,7 +265,7 @@ class MetaLearningModel(object):
         self.prediction_base_models_used = np.zeros(len(X))
 
         # estimate prediction time - start
-        self.prediction_time = time.time()
+        self.prediction_time = time()
 
         # iterate over instances
         for idx, x in tqdm(enumerate(X)) if verbose else enumerate(X):
@@ -287,7 +287,7 @@ class MetaLearningModel(object):
             predictions[idx] = final_prediction
 
         # estimate prediction time - end
-        self.prediction_time = time.time() - self.prediction_time
+        self.prediction_time = time() - self.prediction_time
 
         return predictions
 
@@ -320,7 +320,7 @@ class MetaLearningModel(object):
 
         # estimate fit time for each base model - start
         self.fit_time = {
-            "Fit-" + self.base_models[i].name: time.time()
+            "Fit-" + self.base_models[i].name: time()
             for i in range(len(self.base_models))
         }
 
@@ -330,7 +330,7 @@ class MetaLearningModel(object):
 
             # estimate fit time for each base model - end
             self.fit_time["Fit-" + self.base_models[idx].name] = (
-                time.time() - self.fit_time["Fit-" + self.base_models[idx].name]
+                time() - self.fit_time["Fit-" + self.base_models[idx].name]
             )
 
     def predict_base_models(
@@ -367,7 +367,7 @@ class MetaLearningModel(object):
         """
 
         # single meta model that supports a multi-label task
-        self.meta_fit_time = time.time()
+        self.meta_fit_time = time()
 
         if self.multi_label == True:
             self.meta_models.fit(X, y)
@@ -383,7 +383,7 @@ class MetaLearningModel(object):
                 for idx, meta_model in enumerate(self.meta_models):
                     meta_model.fit(X, y[:, idx])
 
-        self.meta_fit_time = time.time() - self.meta_fit_time
+        self.meta_fit_time = time() - self.meta_fit_time
 
     def predict_meta_models(self, x: np.ndarray) -> np.ndarray:
 
@@ -453,7 +453,7 @@ class MetaLearningModel(object):
 
             # save training time for each base model
             self.cross_validation_time = {
-                "CV-" + self.base_models[i].name: time.time()
+                "CV-" + self.base_models[i].name: time()
                 for i in range(len(self.base_models))
             }
 
@@ -471,7 +471,7 @@ class MetaLearningModel(object):
 
                 # save training time for each base model
                 self.cross_validation_time["CV-" + self.base_models[idx].name] = (
-                    time.time()
+                    time()
                     - self.cross_validation_time["CV-" + self.base_models[idx].name]
                 )
 
@@ -486,7 +486,7 @@ class MetaLearningModel(object):
 
             # save training time for each base model
             self.partial_fit_time = {
-                "PF-" + self.base_models[i].name: time.time()
+                "PF-" + self.base_models[i].name: time()
                 for i in range(len(self.base_models))
             }
 
@@ -507,7 +507,7 @@ class MetaLearningModel(object):
 
                 # save training time for each base model
                 self.partial_fit_time["PF-" + self.base_models[idx].name] = (
-                    time.time()
+                    time()
                     - self.partial_fit_time["PF-" + self.base_models[idx].name]
                 )
 
