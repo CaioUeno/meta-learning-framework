@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import statistics
 from time import time
+from types import GeneratorType
 from tqdm import tqdm
 import warnings
 
@@ -58,9 +59,11 @@ class MetaLearningModel(object):
             self.multi_label = multi_label
             self.selector = selector
 
+        # attributes that will appear inside methods
         self.X_meta_models = None
         self.y_meta_models = None
         self.prediction_base_models_used = None
+        self.refit = None
         self.cross_validation_time = {}
         self.partial_fit_time = {}
         self.fit_time = {}
@@ -201,15 +204,18 @@ class MetaLearningModel(object):
             )
 
         # check cv type and value
-        if not isinstance(cv, (int, float)):
+        if not isinstance(cv, (int, float, GeneratorType)):
             raise TypeError("cv must be as type int or float.")
 
         if isinstance(cv, float) and not (cv > 0 and cv < 1):
             raise TypeError("If cv passed as float, then it must be in (0, 1) range.")
         
-        
         self.refit = refit if isinstance(cv, float) else True
 
+        # if isinstance(cv, GeneratorType):
+        #     X_meta_models, y_meta_models = self.gen_cross_validation(X, y, cv=cv, verbose=verbose)
+
+    
         # create meta model training set
         X_meta_models, y_meta_models = self.cross_validation(
             X, y, cv=cv, verbose=verbose, n_jobs=n_jobs
@@ -479,7 +485,7 @@ class MetaLearningModel(object):
             y_true = y.copy()
 
         # float in [0, 1] range
-        else:
+        elif isinstance(cv, float):
 
             if verbose:
                 print("Starting partial-fit:")
@@ -516,6 +522,38 @@ class MetaLearningModel(object):
             #
             X_meta_models = X_valid.copy()
             y_true = y_valid.copy()
+
+        else:
+            
+            X_shape = list(X.shape[1:])
+            X_shape.insert(0, 0)
+            X_meta_models = np.zeros(tuple(X_shape))
+
+            y_true = np.zeros((0))
+
+            base_models_predictions = {idx:np.zeros((0)) for idx, base_model in enumerate(self.base_models)}
+
+            for idx, (train_index, test_index) in tqdm(enumerate(cv)):
+
+                X_train, X_test = X[train_index], X[test_index]
+                y_train, y_test = y[train_index], y[test_index]
+
+                X_meta_models = np.concatenate([X_meta_models, X_test])
+                y_true = np.concatenate([y_true, y_test])
+
+                self.fit_base_models(X_train, y_train)
+
+                for idx, base_model in (
+                    tqdm(enumerate(self.base_models))
+                    if verbose
+                    else enumerate(self.base_models)
+                ):
+
+                    y_pred = base_model.predict(X_test)
+                    y_pred = np.expand_dims(y_pred, axis=0) if len(y_pred) == 1 else y_pred
+
+                    base_models_predictions[idx] = np.concatenate([base_models_predictions[idx], y_pred])
+        
 
         # now, extract information of correctness from y_pred for each base model
         # and create meta model training set
@@ -560,6 +598,12 @@ class MetaLearningModel(object):
                 )
 
             return (X_meta_models, self.__selector(y_error_meta_models))
+
+    def gen_cross_validation(self, X, y, cv, verbose: bool):
+
+        
+        
+        return (X_meta_models, base_models_predictions)
 
     def __adapt_method(self) -> str:
 

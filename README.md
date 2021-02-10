@@ -16,7 +16,9 @@ It contains three main classes: [MetaLearningModel], [BaseModel] and [MetaClassi
 
 **MetaLearningModel** is the class that does all the work. The fit method will use a cross-validation (or a simple train_test_split validation, depends on the cv param) to create a training set to the meta classifier. In this process, it train every base model and predict a batch of instances, comparing the output with the true values. 
 
-Depending on the task and mode (combiner and error_measure fuction as well), it will select the best base models for each instances in the batch. It can be a multi-class or even a multi-label task. The meta model training set will be composed of instances (as they are in the original problem) and arrays of zeros and ones (targets), indicating which base model were selected or not for each instance (they have number_of_base_models length).
+Depending on the task and mode (**combiner** and **error_measure** fuction as well), it will select the best base model(s) for each instances in the batch. It can be a multi-class or even a multi-label task. The meta model training set will be composed of **instances** (as they are in the original problem) and **targets** (arrays of zeros and ones), indicating which base model(s) were selected or not for each instance (they have number_of_base_models length).
+
+In the prediction step, first the **MetaLearningModel** will predict the instance choosing which base models are going to be used. Then, **only those selected bse models** are going to predict the given instance. Finally, their outputs is combined using the **combiner** fuction.
 
 You can see more about this meta learning approach on this paper: https://link.springer.com/chapter/10.1007/978-3-030-61380-8_29.
 
@@ -26,12 +28,12 @@ You can see more about this meta learning approach on this paper: https://link.s
 * sklearn
 * pandas
 * tqdm
-* [sktime](https://github.com/alan-turing-institute/sktime/tree/master/sktime) (Optional - test code)
-* [tensorflow](https://github.com/tensorflow/tensorflow) (Optional - test code)
+* [sktime](https://github.com/alan-turing-institute/sktime/tree/master/sktime) (optional - test code)
+* [tensorflow](https://github.com/tensorflow/tensorflow) (optional - test code)
 
-# Setup
+# Installation
 
-Installation:
+Run:
 
 ```
 $ pip install meta_learning_framework
@@ -43,33 +45,33 @@ This section presents how to execute some test codes for you to better understan
 
 ## Classification - Binary Mode
 
-This example uses [sktime](https://github.com/alan-turing-institute/sktime/tree/master/sktime) framework for time series classification.
+This example uses [sktime](https://github.com/alan-turing-institute/sktime/tree/master/sktime) framework for time series classification. Binary mode indicates that when creating the meta classifier training set, base models that correctly predict instances' class will be selected (soft selection). Notice that it can imply a multi-label classification task.
 
 Run the following commands:
 
 ```
 
 $ cd tests/
-$ python3 tsc_classification_example.py "dataset's name" binary
+$ python3 tsc_classification_example.py "sktime dataset's name" binary
 
 ```
 
 ## Classification - Score Mode
 
-This example uses [sktime](https://github.com/alan-turing-institute/sktime/tree/master/sktime) framework for time series classification as well. The difference to the previous one is the mode. Now, the ref.
+This example uses [sktime](https://github.com/alan-turing-institute/sktime/tree/master/sktime) framework for time series classification as well. The difference to the previous one is the mode. Now, the base model that outputs the best score distribution will be choosen. It implies only a multi-class classification task.
 
 Run the following commands:
 
 ```
 
 $ cd tests/
-$ python3 tsc_classification_example.py "dataset's name" score
+$ python3 tsc_classification_example.py "sktime dataset's name" score
 
 ```
 
-## Regression - Sklearn regression datasets
+## Regression (Score mode only)
 
-This example uses sklearn's regression [datasets](https://scikit-learn.org/stable/modules/classes.html#module-sklearn.datasets). There is a Random Forest classifier which learns to choose the base regressor that will output a prediction with the smallest error possible between all regressors (**only multi-class task**).
+This example uses sklearn's regression [datasets](https://scikit-learn.org/stable/modules/classes.html#module-sklearn.datasets). There is a Random Forest classifier which learns to choose the base regressor that will output a prediction with the smallest error possible between all regressors (**multi-class task**).
 
 Run the following commands:
 
