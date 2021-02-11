@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import statistics
 from time import time
-from types import GeneratorType
 from tqdm import tqdm
+from types import GeneratorType
 import warnings
 
 from sklearn.model_selection import cross_val_predict
@@ -60,6 +60,7 @@ class MetaLearningModel(object):
             self.selector = selector
 
         # attributes that will appear inside methods
+        self.y_shape = None
         self.X_meta_models = None
         self.y_meta_models = None
         self.prediction_base_models_used = None
@@ -213,10 +214,13 @@ class MetaLearningModel(object):
         
         # only accept refit argument if cv passed as float
         self.refit = refit if isinstance(cv, float) else True
-    
+
+        # store y shape
+        self.y_shape = None if len(y.shape) == 1 else y.shape[1:]
+
         # create meta model training set
         X_meta_models, y_meta_models = self.cross_validation(
-            X, y, cv=cv, verbose=verbose, n_jobs=n_jobs
+            X, y, cv=cv, verbose=verbose
         )
 
         if verbose:
@@ -263,7 +267,13 @@ class MetaLearningModel(object):
         ):  # in this particular task, it is interesting to count how many times there were a tie
             self.ties = 0
 
-        predictions = np.zeros(len(X))
+        if self.task == "classification" or not self.y_shape:
+            predictions = np.zeros(len(X))
+        
+        # regression task can output more than one value, so it need to infer the predictions array shape
+        else:
+            shape = list(self.y_shape); shape.insert(0, len(X))
+            predictions = np.zeros(shape)
 
         # store how many base models were selected for each instance (metric)
         self.prediction_base_models_used = np.zeros(len(X))
@@ -545,9 +555,11 @@ class MetaLearningModel(object):
 
             # variable to store instances that are going to be predicted on this step
             X_meta_models = np.zeros(tuple(X_shape))
-            y_true = np.zeros((0))
 
-            base_models_predictions = {idx:np.zeros((0)) for idx, base_model in enumerate(self.base_models)}
+            y_shape = list(self.y_shape); y_shape.insert(0, 0)
+            y_true = np.zeros(y_shape) if self.y_shape else np.zeros((0))
+
+            base_models_predictions = {idx:np.zeros(y_shape) if self.y_shape else np.zeros((0)) for idx, base_model in enumerate(self.base_models)}
 
             # iterate over train/test indexes on generator
             for idx, (train_index, test_index) in tqdm(enumerate(cv)):
@@ -562,11 +574,7 @@ class MetaLearningModel(object):
                 # fit all base models
                 self.fit_base_models(X_train, y_train)
 
-                for idx, base_model in (
-                    tqdm(enumerate(self.base_models))
-                    if verbose
-                    else enumerate(self.base_models)
-                ):
+                for idx, base_model in enumerate(self.base_models):
 
                     # prediction step
                     y_pred = base_model.predict(X_test)
