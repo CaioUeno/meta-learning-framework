@@ -296,7 +296,7 @@ if __name__ == "__main__":
     )
     
     # fit and predict methods
-    mm_framework.fit(X_train, y_train, cv=0.3, dynamic_shrink=True, n_jobs=1)
+    mm_framework.fit(X_train, y_train, cv=0.4, dynamic_shrink=True)
     meta_preds = mm_framework.predict(X_test.values)
 
     # metrics
