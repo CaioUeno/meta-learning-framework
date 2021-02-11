@@ -1,10 +1,8 @@
-from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, AdaBoostRegressor
-from sklearn.linear_model import LinearRegression, SGDRegressor
-from sklearn.svm import SVR
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.model_selection import TimeSeriesSplit
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from tensorflow.keras.preprocessing import timeseries_dataset_from_array
 
@@ -45,20 +43,57 @@ class LocalMetaClassifier(MetaClassifier):
     def predict_one(self, x):
         return self.model.predict([x])
 
+def my_error(pred: np.array, target: np.array) -> float:
+
+    """
+    Sum the absolute error given a prediction and a target (both 2-D).
+
+    Arguments:
+        pred (np.ndarray): array which contains one prediction.
+        target (np.ndarray): array which contains the target (ground thruth) for the given prediction.
+
+    Returns:
+        abs_error (float): sum of absolute error.
+    """
+
+    error = abs(pred - target).sum()
+
+    return error
+
+def my_min_combiner(preds: np.array) -> np.array:
+
+    """
+    Return the lowest value for each output dimension.
+
+    Arguments:
+        preds (np.ndarray): array which contains predictions.
+
+    Returns:
+        mins (np.ndarray): array which contains lowest value for each output dimension.
+    """
+    mins = np.min(preds, axis=0)
+
+    return mins
 
 if __name__ == "__main__":
 
     # create a artificial time series
-    time_series = np.sin(np.linspace(0, 100, 10000)) + np.linspace(0, 100, 10000) + (np.random.rand(10000) / 2)
+    time_series = np.random.uniform(0, 1, 10000)
     
-    WINDOW_SIZE = 15
+    WINDOW_SIZE = 25
     
     # for simplicity, use this tensorflow function to structure the time series dataset
     dataset = timeseries_dataset_from_array(time_series[:-WINDOW_SIZE], time_series[WINDOW_SIZE:],
                                             sequence_length=WINDOW_SIZE, batch_size=10000-WINDOW_SIZE, shuffle=False)
     
+    # transform Dataset object into array
     for (batch_of_sequences, batch_of_targets) in dataset:
-        X, y = np.array(batch_of_sequences), np.array(batch_of_targets)
+
+        X = np.array(batch_of_sequences)
+        y = np.array(batch_of_targets)
+
+        # simulating a multi output task
+        y = np.concatenate([np.expand_dims(y, axis=-1), np.expand_dims(y * 2, axis=-1)], axis=-1)
 
     # split into train and test sets - easy for time series
     train_index = 6000
@@ -68,64 +103,38 @@ if __name__ == "__main__":
     # list of base regressors
     bm = [
         LocalEstimator(LinearRegression(normalize=True, n_jobs=-1), "Linear"),
-        LocalEstimator(SVR(), "SVR"),
         LocalEstimator(KNeighborsRegressor(n_neighbors=3, n_jobs=-1), "3NN"),
-        LocalEstimator(
-            AdaBoostRegressor(n_estimators=100, random_state=11), "AdaBoost"
-        ),
+        LocalEstimator(RandomForestRegressor(n_jobs=-1), "RF")
     ]
 
     # meta learning framework initialization
     mm = MetaLearningModel(
-        LocalMetaClassifier(RandomForestClassifier()), bm, "regression", "score"
+        LocalMetaClassifier(RandomForestClassifier()), bm, "regression", "score",
+                            error_measure=my_error, combiner=my_min_combiner
     )
 
     mm.fit(X_train, y_train, cv=TimeSeriesSplit().split(X_train))
     meta_preds = mm.predict(X_test)
 
     # evaluation
-    print(f"Mean Absolute Error: {mean_absolute_error(y_test, meta_preds)}")
-    print(f"Mean Squared Error: {mean_squared_error(y_test, meta_preds)}")
-    print(f"R2: {r2_score(y_test, meta_preds)}")
+    print(f"MAE : {abs(meta_preds-y_test).sum(axis=-1).mean():.2f}")
+
+    # naive ensemble for comparison
 
     # reinitialize list of base classifiers
     bm = [
         LocalEstimator(LinearRegression(normalize=True, n_jobs=-1), "Linear"),
-        LocalEstimator(SVR(), "SVR"),
         LocalEstimator(KNeighborsRegressor(n_neighbors=3, n_jobs=-1), "3NN"),
-        LocalEstimator(
-            AdaBoostRegressor(n_estimators=100, random_state=11), "AdaBoost"
-        ),
+        LocalEstimator(RandomForestRegressor(n_jobs=-1), "RF")
     ]
 
     # naive ensemble object
-    ne = NaiveEnsemble(bm, "regression")
+    ne = NaiveEnsemble(bm, "regression", combiner=my_min_combiner)
 
     # fit and predict methods
     ne.fit(X_train, y_train)
     ne_preds = ne.predict(X_test)
 
     # evaluation
-    print(f"Mean Absolute Error: {mean_absolute_error(y_test, ne_preds)}")
-    print(f"Mean Squared Error: {mean_squared_error(y_test, ne_preds)}")
-    print(f"R2: {r2_score(y_test, ne_preds)}")
-
-    # evaluate base models individual performance
-    print("individual performance report:")
-    individual_preds = ne.individual_predict(X_test)
-
-    for model_name in individual_preds.keys():
-
-        print(
-            model_name
-            + " - MAE: "
-            + str(mean_absolute_error(y_test, individual_preds[model_name]))
-            + " / MSE: "
-            + str(mean_squared_error(y_test, individual_preds[model_name]))
-            + "/ R2 : "
-            + str(r2_score(y_test, individual_preds[model_name]))
-        )
-
-
-
+    print(f"MAE : {abs(ne_preds-y_test).sum(axis=-1).mean():.2f}")
     
