@@ -60,17 +60,3 @@ def proba_mean_error(pred: np.array, target: np.array) -> np.array:
     prob_mean_error = np.mean(abs(pred - target))
 
     return prob_mean_error
-
-
-# def cross_fit_predict(estimator, X, y, cv, method='predict', n_jobs=1):
-
-#     if isinstance(cv, int):
-#         KFold(n_splits=cv, shuffle=False).split(X)
-
-#     elif isinstance(cv, tuple):
-#         estimator.getattr(foo, 'bar')
-
-#     else:
-#         raise ValueError("Parameter \"cv\" must be integer or a tuple as (train_indexes_list, test_indexes_list).")
-    
-
