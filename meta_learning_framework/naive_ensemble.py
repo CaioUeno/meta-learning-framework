@@ -142,30 +142,6 @@ class NaiveEnsemble(object):
 
         return predictions
 
-    def save_performance_metrics(self, path, y_true, y_pred):
-
-        """
-        Save performance metrics into a .csv file given by path.
-
-        Arguments:
-            path (str): file's path (.csv).
-        """
-
-        self.performance_metrics = pd.DataFrame()
-        self.performance_metrics["metric"] = [
-            "accuracy",
-            "precision",
-            "recall",
-            "f1-score",
-        ]
-        self.performance_metrics["value"] = [
-            accuracy_score(y_true, y_pred),
-            precision_score(y_true, y_pred, average="micro"),
-            recall_score(y_true, y_pred, average="micro"),
-            f1_score(y_true, y_pred, average="micro"),
-        ]
-        self.performance_metrics.to_csv(path, index=False)
-
     def save_time_metrics(self, filename) -> bool:
 
         """
