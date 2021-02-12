@@ -4,16 +4,16 @@ A framework to apply machine learning on how to combine models (learn to ensembl
 
 ## Table of contents
 
-* [Introduction](#Introduction)
-* [Dependencies](#Dependencies)
-* [Installation](#Installation)
-* [Examples](#Examples)
-  * [Classification - Binary](##Classification---Binary-Mode)
-  * [Classification - Score](##Classification---Binary-Score)
-  * [Regression](##Regression-(Score-mode-only))
-  * [Forecasting](#Forecasting)
+* [Introduction](##Introduction)
+* [Dependencies](##Dependencies)
+* [Installation](##Installation)
+* [Examples](##Examples)
+  * [Classification - Binary](###Classification---Binary-Mode)
+  * [Classification - Score](###Classification---Score-Mode)
+  * [Regression](###Regression-Score-mode-only)
+  * [Forecasting](###Forecasting)
 
-* [Performance](#Performance)
+* [Performance](##Performance)
 
 ## Introduction
 
