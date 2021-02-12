@@ -8,7 +8,7 @@ setuptools.setup(
     version="0.0.3",
     author="Caio Ueno",
     author_email="caiol.ueno@gmail.com",
-    description="A framework to apply a meta learning algorithm (learn how to ensemble models)",
+    description="A framework to apply a meta learning algorithm at instance level (learn how to ensemble models)",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/CaioUeno/meta-learning-framework/",
@@ -18,5 +18,5 @@ setuptools.setup(
         "License :: Freely Distributable",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    python_requires=">=3.6",
 )
