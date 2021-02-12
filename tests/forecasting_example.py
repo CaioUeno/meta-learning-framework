@@ -6,9 +6,9 @@ from sklearn.model_selection import TimeSeriesSplit
 
 from tensorflow.keras.preprocessing import timeseries_dataset_from_array
 
-from meta_learning_framework.base_models import BaseModel
+from meta_learning_framework.base_model import BaseModel
 from meta_learning_framework.meta_classifier import MetaClassifier
-from meta_learning_framework.metamodel import MetaLearningModel
+from meta_learning_framework.meta_learning_model import MetaLearningModel
 from meta_learning_framework.naive_ensemble import NaiveEnsemble
 
 import numpy as np

@@ -3,9 +3,9 @@ import numpy as np
 import pandas as pd
 
 # meta learning framework classes and utils
-from meta_learning_framework.base_models import BaseModel
+from meta_learning_framework.base_model import BaseModel
 from meta_learning_framework.meta_classifier import MetaClassifier
-from meta_learning_framework.metamodel import MetaLearningModel
+from meta_learning_framework.meta_learning_model import MetaLearningModel
 from meta_learning_framework.naive_ensemble import NaiveEnsemble
 from meta_learning_framework.utils import proba_mean_error
 
