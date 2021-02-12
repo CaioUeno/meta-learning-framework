@@ -179,9 +179,7 @@ class MetaLearningModel(object):
         # everything is all right!
         return True
 
-    def fit(
-        self, X, y, cv=10, refit=False, verbose=True, dynamic_shrink=True
-    ) -> None:
+    def fit(self, X, y, cv=10, refit=False, verbose=True, dynamic_shrink=True) -> None:
 
         """
         First, it creates meta model's training set using a cross-validation method.
@@ -211,7 +209,7 @@ class MetaLearningModel(object):
 
         if isinstance(cv, float) and not (cv > 0 and cv < 1):
             raise TypeError("If cv passed as float, then it must be in (0, 1) range.")
-        
+
         # only accept refit argument if cv passed as float
         self.refit = refit if isinstance(cv, float) else True
 
@@ -269,10 +267,11 @@ class MetaLearningModel(object):
 
         if self.task == "classification" or not self.y_shape:
             predictions = np.zeros(len(X))
-        
+
         # regression task can output more than one value, so it need to infer the predictions array shape
         else:
-            shape = list(self.y_shape); shape.insert(0, len(X))
+            shape = list(self.y_shape)
+            shape.insert(0, len(X))
             predictions = np.zeros(shape)
 
         # store how many base models were selected for each instance (metric)
@@ -437,12 +436,12 @@ class MetaLearningModel(object):
         If float passed it becomes a 1-fold using cv as the portion of X to be used as validation.
         It is actually creating a training set for the meta model (X, y).
         X is the instances as they are, but y is which base models should be used to predict each instance.
-        
+
         It has three different flows for each possible cv type:
         1) int: full cross-validation method using cv folds.
         2) float: partial cross-validation method using cv as a validation portion.
         3) generator: custom cross-validation method using cv as a generator of train and test indexes splits.
-        
+
         It has three possible flows to decide how to select base models:
         1) classification binary mode: Only for classification task. It checks if the base models labeled correctly or not
         every instance.
@@ -465,7 +464,7 @@ class MetaLearningModel(object):
         """
 
         if isinstance(cv, int):
-            
+
             """
             Full cross-validation method using cv folds.
             """
@@ -534,8 +533,7 @@ class MetaLearningModel(object):
 
                 # save training time for each base model
                 self.partial_fit_time["PF-" + self.base_models[idx].name] = (
-                    time()
-                    - self.partial_fit_time["PF-" + self.base_models[idx].name]
+                    time() - self.partial_fit_time["PF-" + self.base_models[idx].name]
                 )
 
                 base_models_predictions[idx] = base_model.predict(X_valid)
@@ -549,17 +547,22 @@ class MetaLearningModel(object):
             """
             Custom cross-validation method using cv as a generator of train and test indexes splits.
             """
-            
+
             # get instance shape
-            X_shape = list(X.shape[1:]); X_shape.insert(0, 0)
+            X_shape = list(X.shape[1:])
+            X_shape.insert(0, 0)
 
             # variable to store instances that are going to be predicted on this step
             X_meta_models = np.zeros(tuple(X_shape))
 
-            y_shape = list(self.y_shape); y_shape.insert(0, 0)
+            y_shape = list(self.y_shape)
+            y_shape.insert(0, 0)
             y_true = np.zeros(y_shape) if self.y_shape else np.zeros((0))
 
-            base_models_predictions = {idx:np.zeros(y_shape) if self.y_shape else np.zeros((0)) for idx, base_model in enumerate(self.base_models)}
+            base_models_predictions = {
+                idx: np.zeros(y_shape) if self.y_shape else np.zeros((0))
+                for idx, base_model in enumerate(self.base_models)
+            }
 
             # iterate over train/test indexes on generator
             for idx, (train_index, test_index) in tqdm(enumerate(cv)):
@@ -578,11 +581,14 @@ class MetaLearningModel(object):
 
                     # prediction step
                     y_pred = base_model.predict(X_test)
-                    y_pred = np.expand_dims(y_pred, axis=0) if len(y_pred) == 1 else y_pred
+                    y_pred = (
+                        np.expand_dims(y_pred, axis=0) if len(y_pred) == 1 else y_pred
+                    )
 
                     # increase y_pred over iterations as well
-                    base_models_predictions[idx] = np.concatenate([base_models_predictions[idx], y_pred])
-        
+                    base_models_predictions[idx] = np.concatenate(
+                        [base_models_predictions[idx], y_pred]
+                    )
 
         # now, extract information of correctness from y_pred for each base model
         # and create meta model training set
@@ -709,19 +715,28 @@ class MetaLearningModel(object):
     def analysis(self, X, y, validation_split=0.2, random_state=None) -> tuple:
 
         """
-        .
+        Depending on the task, it analyses how much the base models are "correlated"/similar.
+        If classification, it returns two matrices: first one contains how many times two base models labeled
+        correctly the same instance. And the second one contains how many times two base models labeled incorrectly
+        the same instance but as the same wrong class.
+        If regression, then it returns two correlation matrices: one is the correlation between the base models' output,
+        and the other is the correlation between the base models' output **errors**.
         """
 
         # check X and y type
         if not isinstance(X, (pd.DataFrame, np.ndarray)) or not isinstance(
             y, (pd.core.series.Series, pd.DataFrame, np.ndarray)
         ):
-            raise TypeError("")
+            raise TypeError(
+                "X must be as type pd.DataFrame or np.ndarray, and y must be as type pd.core.series.Series, pd.DataFrame or np.ndarray."
+            )
 
+        # split into train and validation
         X_train, X_valid, y_train, y_valid = train_test_split(
             X, y, test_size=validation_split, random_state=random_state
         )
 
+        # store base models predictions
         predictions = {}
         for idx, base_model in enumerate(self.base_models):
 
@@ -730,13 +745,39 @@ class MetaLearningModel(object):
 
         if self.task == "classification":
 
-            # accuracy_correlation = / X_valid.shape[0]
-            # mislabel_correlation = / X_valid.shape[0]
+            accuracy_correlation = pd.DataFrame(
+                columns=[base_model.name for base_model in self.base_models],
+                index=[base_model.name for base_model in self.base_models],
+            )
+            mislabel_correlation = pd.DataFrame(
+                columns=[base_model.name for base_model in self.base_models],
+                index=[base_model.name for base_model in self.base_models],
+            )
 
-            # return (accuracy_correlation, mislabel_correlation)
-            pass
+            for m_one in self.base_models:
+                for m_two in self.base_models:
+
+                    accuracy_correlation.loc[m_one.name, m_two.name] = (
+                        (predictions[m_one.name] == predictions[m_two.name])
+                        .astype(int)
+                        .sum()
+                    )
+                    mislabel_correlation.loc[m_one.name, m_two.name] = (
+                        (
+                            (predictions[m_one.name] == predictions[m_two.name])
+                            & (predictions[m_one.name] != y_valid)
+                        )
+                        .astype(int)
+                        .sum()
+                    )
+
+            accuracy_correlation /= len(y_valid)
+            mislabel_correlation /= len(y_valid)
+
+            return (accuracy_correlation, mislabel_correlation)
 
         else:
+
             predictions_correlation_matrix = pd.DataFrame(predictions).corr()
             error_correlation_matrix = pd.DataFrame(
                 {
@@ -783,31 +824,6 @@ class MetaLearningModel(object):
             target_meta_models[i] = self.selector(y_error_meta_models[i])
 
         return target_meta_models
-
-    def save_performance_metrics(self, path, y_true, y_pred):
-
-        """
-        Save performance metrics into a .csv file given by path.
-
-        Arguments:
-            path (str): file's path (.csv).
-        """
-
-        self.performance_metrics = pd.DataFrame()
-        self.performance_metrics["metric"] = [
-            "accuracy",
-            "precision",
-            "recall",
-            "f1-score",
-        ]
-        self.performance_metrics["value"] = [
-            accuracy_score(y_true, y_pred),
-            precision_score(y_true, y_pred, average="micro"),
-            recall_score(y_true, y_pred, average="micro"),
-            f1_score(y_true, y_pred, average="micro"),
-        ]
-
-        self.performance_metrics.to_csv(path, index=False)
 
     def save_base_models_used(self, filename: str) -> bool:
 
