@@ -29,8 +29,18 @@ class BaseModel(BaseEstimator):
 
     @abstractmethod
     def predict(self, X):
+        """
+        Note: if classifier, it assumes that this method returns a label for each instance.
+        """
         pass
 
     @abstractmethod
     def predict_one(self, x):
+        pass
+    
+    @abstractmethod
+    def predict_proba(self, X):
+        """
+        Note: only needed if classification task and score mode selected.
+        """
         pass

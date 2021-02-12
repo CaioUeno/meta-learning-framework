@@ -1,5 +1,5 @@
-from sklearn.base import BaseEstimator
 from abc import abstractmethod
+from sklearn.base import BaseEstimator
 
 
 class MetaClassifier(BaseEstimator):
@@ -11,20 +11,15 @@ class MetaClassifier(BaseEstimator):
         model: model.
     """
 
-    def __init__(self, model, **kwargs):
+    def __init__(self, model):
 
         self.model = model
 
     @abstractmethod
     def fit(self, X, y):
-
         """
-        Note: y will have shape (n_instances, n_base_models), even if it is only a multi-class task (not a multi-label).
-        Keep this in mind while implementing this method. 
-        Suggestion: if you want a "one-number label" (0, 1, 2, ...) and not a one-hot encoding,
-        simply apply numpy.argmax(y) and then you have a numerical class.
+        Note: Check fit_meta_models method on meta_learning_model.py to see y's shape.
         """
-
         pass
 
     @abstractmethod

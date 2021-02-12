@@ -1,9 +1,8 @@
-import time
-import pandas as pd
 import numpy as np
+import pandas as pd
 import statistics
+from time import time
 from tqdm import tqdm
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 import warnings
 
 
@@ -51,7 +50,7 @@ class NaiveEnsemble(object):
 
         # estimate fit time - start
         self.fit_time = {
-            "Fit-" + self.models[i].name: time.time() for i in range(len(self.models))
+            "Fit-" + self.models[i].name: time for i in range(len(self.models))
         }
         for idx, model in (
             tqdm(enumerate(self.models)) if verbose else enumerate(self.models)
@@ -61,7 +60,7 @@ class NaiveEnsemble(object):
 
             # estimate fit time - end
             self.fit_time["Fit-" + self.models[idx].name] = (
-                time.time() - self.fit_time["Fit-" + self.models[idx].name]
+                time - self.fit_time["Fit-" + self.models[idx].name]
             )
         
         if verbose:
@@ -84,7 +83,7 @@ class NaiveEnsemble(object):
             print("Starting base models predict:")
 
         # estimate prediction time - start
-        self.prediction_time = time.time()
+        self.prediction_time = time
 
         predictions = {}
 
@@ -94,7 +93,7 @@ class NaiveEnsemble(object):
             predictions[idx] = model.predict(X)
 
         # estimate prediction time - end
-        self.prediction_time = time.time() - self.prediction_time
+        self.prediction_time = time - self.prediction_time
 
         # combine each base model prediction
         predictions = np.array(
@@ -128,7 +127,7 @@ class NaiveEnsemble(object):
             print("Starting base models predict:")
 
         # estimate prediction time - start
-        self.prediction_time = time.time()
+        self.prediction_time = time
 
         predictions = {}
 
@@ -138,7 +137,7 @@ class NaiveEnsemble(object):
             predictions[model.name] = model.predict(X)
 
         # estimate prediction time - end
-        self.prediction_time = time.time() - self.prediction_time
+        self.prediction_time = time - self.prediction_time
 
         return predictions
 
