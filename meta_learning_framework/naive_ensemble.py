@@ -50,19 +50,19 @@ class NaiveEnsemble(object):
 
         # estimate fit time - start
         self.fit_time = {
-            "Fit-" + self.models[i].name: time for i in range(len(self.models))
+            "Fit-" + self.models[i].name: time() for i in range(len(self.models))
         }
         for idx, model in (
-            tqdm(enumerate(self.models)) if verbose else enumerate(self.models)
+            tqdm(enumerate(self.models), total=len(self.models)) if verbose else enumerate(self.models)
         ):
 
             model.fit(X, y)
 
             # estimate fit time - end
             self.fit_time["Fit-" + self.models[idx].name] = (
-                time - self.fit_time["Fit-" + self.models[idx].name]
+                time() - self.fit_time["Fit-" + self.models[idx].name]
             )
-        
+
         if verbose:
             print("All base models fitted and ready to prediction.")
 
@@ -83,17 +83,17 @@ class NaiveEnsemble(object):
             print("Starting base models predict:")
 
         # estimate prediction time - start
-        self.prediction_time = time
+        self.prediction_time = time()
 
         predictions = {}
 
         for idx, model in (
-            tqdm(enumerate(self.models)) if verbose else enumerate(self.models)
+            tqdm(enumerate(self.models), total=len(self.models)) if verbose else enumerate(self.models)
         ):
             predictions[idx] = model.predict(X)
 
         # estimate prediction time - end
-        self.prediction_time = time - self.prediction_time
+        self.prediction_time = time() - self.prediction_time
 
         # combine each base model prediction
         predictions = np.array(
@@ -127,21 +127,21 @@ class NaiveEnsemble(object):
             print("Starting base models predict:")
 
         # estimate prediction time - start
-        self.prediction_time = time
+        self.prediction_time = time()
 
         predictions = {}
 
         for idx, model in (
-            tqdm(enumerate(self.models)) if verbose else enumerate(self.models)
+            tqdm(enumerate(self.models), total=len(self.models)) if verbose else enumerate(self.models)
         ):
             predictions[model.name] = model.predict(X)
 
         # estimate prediction time - end
-        self.prediction_time = time - self.prediction_time
+        self.prediction_time = time() - self.prediction_time
 
         return predictions
 
-    def save_time_metrics(self, filename) -> bool:
+    def save_time_metrics_csv(self, filename) -> bool:
 
         """
         Save time metrics into a .csv file given by filename.

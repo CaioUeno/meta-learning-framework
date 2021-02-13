@@ -44,6 +44,7 @@ def absolute_error(pred: np.array, target: np.array) -> np.array:
 
     return abs_error
 
+
 def proba_mean_error(pred: np.array, target: np.array) -> np.array:
 
     """

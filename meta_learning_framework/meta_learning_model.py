@@ -139,7 +139,7 @@ class MetaLearningModel(object):
                     "If classification task and score mode chosen then base models must have method predict_proba(X)."
                 )
 
-         # define the error measure function if it was not passed as an argument
+        # define the error measure function if it was not passed as an argument
         if not error_measure:
 
             # classification task and binary mode does not use a error measure function
@@ -276,7 +276,7 @@ class MetaLearningModel(object):
         self.prediction_time = time()
 
         # iterate over instances
-        for idx, x in tqdm(enumerate(X)) if verbose else enumerate(X):
+        for idx, x in tqdm(enumerate(X), total=len(X)) if verbose else enumerate(X):
 
             # meta model prediction tells which base models to use
             selected_base_models = self.predict_meta_models(x)
@@ -441,7 +441,7 @@ class MetaLearningModel(object):
         It has three possible flows to decide how to select base models:
         1) classification task and binary mode: It checks if the base models labeled correctly or not
         each instance - it is selected if so (Soft criterion).
-        2) classification task and score mode: Apply the error measure function at the score distribuition for 
+        2) classification task and score mode: Apply the error measure function at the score distribuition for
         each instance and the selector function as well.
         3) regression (only works with score mode): Same as 2) but applied to the numerical output.
 
@@ -477,7 +477,7 @@ class MetaLearningModel(object):
             # cross validation for each base model and store its prediction
             base_models_predictions = {}
             for idx, base_model in (
-                tqdm(enumerate(self.base_models))
+                tqdm(enumerate(self.base_models), total=len(self.base_models))
                 if verbose
                 else enumerate(self.base_models)
             ):
@@ -520,7 +520,7 @@ class MetaLearningModel(object):
             # fit base models using a data fraction only once and store their prediction
             base_models_predictions = {}
             for idx, base_model in (
-                tqdm(enumerate(self.base_models))
+                tqdm(enumerate(self.base_models), total=len(self.base_models))
                 if verbose
                 else enumerate(self.base_models)
             ):
@@ -565,7 +565,9 @@ class MetaLearningModel(object):
             }
 
             # iterate over train/test indexes on generator
-            for idx, (train_index, test_index) in (tqdm(enumerate(cv)) if verbose else enumerate(cv)):
+            for idx, (train_index, test_index) in (
+                tqdm(enumerate(cv)) if verbose else enumerate(cv)
+            ):
 
                 X_train, X_test = X[train_index], X[test_index]
                 y_train, y_test = y[train_index], y[test_index]
@@ -871,7 +873,7 @@ class MetaLearningModel(object):
             [
                 pd.DataFrame([self.fit_time]).T,
                 pd.DataFrame([self.cross_validation_time]).T,
-                pd.DataFrame([self.self.partial_fit_time]).T
+                pd.DataFrame([self.partial_fit_time]).T,
             ]
         )
 
