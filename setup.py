@@ -5,18 +5,18 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="meta_learning_framework_CAIO_UENO", # Replace with your own username
-    version="0.0.3",
+    version="1.0.0",
     author="Caio Ueno",
     author_email="caiol.ueno@gmail.com",
     description="A framework to apply a meta learning algorithm at instance level (learn how to ensemble models)",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/CaioUeno/meta-learning-framework/",
-    packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: Freely Distributable",
+        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.6",
+    packages=setuptools.find_packages(),
+    python_requires='>=3.6',
 )

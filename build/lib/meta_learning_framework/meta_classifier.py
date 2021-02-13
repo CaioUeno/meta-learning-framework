@@ -1,5 +1,5 @@
-from sklearn.base import BaseEstimator
 from abc import abstractmethod
+from sklearn.base import BaseEstimator
 
 
 class MetaClassifier(BaseEstimator):
@@ -11,12 +11,15 @@ class MetaClassifier(BaseEstimator):
         model: model.
     """
 
-    def __init__(self, model, **kwargs):
+    def __init__(self, model):
 
         self.model = model
 
     @abstractmethod
     def fit(self, X, y):
+        """
+        Note: Check fit_meta_models method on meta_learning_model.py to see y's shape.
+        """
         pass
 
     @abstractmethod
