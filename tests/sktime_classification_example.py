@@ -196,8 +196,8 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
                 self.in_shape,
             )
         )
-        lstm = LSTM(self.lstm_cells)(inputs)
-        out = Dense(y.shape[1], activation="softmax")(lstm)
+        lstm_layer = LSTM(self.lstm_cells)(inputs)
+        out = Dense(y.shape[1], activation="sigmoid")(lstm_layer)
 
         self.meta_clf = Model(inputs=inputs, outputs=out)
 
@@ -223,7 +223,7 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
 
     def predict(self, X):
 
-        pred = self.meta_clf.predict(X[0].values.reshape(1, 1, -1))[0].ravel()
+        pred = self.meta_clf.predict(X[0].values.reshape(1, 1, -1))
 
         # using 0.5 as threshold
         pred[pred >= 0.5] = 1
