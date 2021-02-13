@@ -56,7 +56,7 @@ Run the following commands:
 
 ```bash
 cd tests/
-python3 tsc_classification_example.py "sktime dataset's name" binary
+python3 tsc_classification_example.py sktime_dataset_name binary
 ```
 
 ### Classification - Score Mode
