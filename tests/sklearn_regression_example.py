@@ -33,7 +33,7 @@ class LocalEstimator(BaseModel):
 class LocalMetaClassifier(MetaClassifier):
     def __init__(self, model):
 
-        self.model = model
+        super().__init__(model)
 
     def fit(self, X, y):
         self.model.fit(X, y)

@@ -32,7 +32,7 @@ class LocalEstimator(BaseModel):
 class LocalMetaClassifier(MetaClassifier):
     def __init__(self, model):
 
-        self.model = model
+        super().__init__(model)
 
     def fit(self, X, y):
         self.model.fit(X, y)
@@ -42,6 +42,7 @@ class LocalMetaClassifier(MetaClassifier):
 
     def predict_one(self, x):
         return self.model.predict([x])
+
 
 def my_error(pred: np.array, target: np.array) -> float:
 
@@ -60,6 +61,7 @@ def my_error(pred: np.array, target: np.array) -> float:
 
     return error
 
+
 def my_min_combiner(preds: np.array) -> np.array:
 
     """
@@ -75,17 +77,23 @@ def my_min_combiner(preds: np.array) -> np.array:
 
     return mins
 
+
 if __name__ == "__main__":
 
     # create a artificial time series
     time_series = np.random.uniform(0, 1, 10000)
-    
+
     WINDOW_SIZE = 25
-    
+
     # for simplicity, use this tensorflow function to structure the time series dataset
-    dataset = timeseries_dataset_from_array(time_series[:-WINDOW_SIZE], time_series[WINDOW_SIZE:],
-                                            sequence_length=WINDOW_SIZE, batch_size=10000-WINDOW_SIZE, shuffle=False)
-    
+    dataset = timeseries_dataset_from_array(
+        time_series[:-WINDOW_SIZE],
+        time_series[WINDOW_SIZE:],
+        sequence_length=WINDOW_SIZE,
+        batch_size=10000 - WINDOW_SIZE,
+        shuffle=False,
+    )
+
     # transform Dataset object into array
     for (batch_of_sequences, batch_of_targets) in dataset:
 
@@ -93,7 +101,9 @@ if __name__ == "__main__":
         y = np.array(batch_of_targets)
 
         # simulating a multi output task
-        y = np.concatenate([np.expand_dims(y, axis=-1), np.expand_dims(y * 2, axis=-1)], axis=-1)
+        y = np.concatenate(
+            [np.expand_dims(y, axis=-1), np.expand_dims(y * 2, axis=-1)], axis=-1
+        )
 
     # split into train and test sets - easy for time series
     train_index = 6000
@@ -104,13 +114,17 @@ if __name__ == "__main__":
     bm = [
         LocalEstimator(LinearRegression(normalize=True, n_jobs=-1), "Linear"),
         LocalEstimator(KNeighborsRegressor(n_neighbors=3, n_jobs=-1), "3NN"),
-        LocalEstimator(RandomForestRegressor(n_jobs=-1), "RF")
+        LocalEstimator(RandomForestRegressor(n_jobs=-1), "RF"),
     ]
 
     # meta learning framework initialization
     mm = MetaLearningModel(
-        LocalMetaClassifier(RandomForestClassifier()), bm, "regression", "score",
-                            error_measure=my_error, combiner=my_min_combiner
+        LocalMetaClassifier(RandomForestClassifier()),
+        bm,
+        "regression",
+        "score",
+        error_measure=my_error,
+        combiner=my_min_combiner,
     )
 
     mm.fit(X_train, y_train, cv=TimeSeriesSplit().split(X_train))
@@ -125,7 +139,7 @@ if __name__ == "__main__":
     bm = [
         LocalEstimator(LinearRegression(normalize=True, n_jobs=-1), "Linear"),
         LocalEstimator(KNeighborsRegressor(n_neighbors=3, n_jobs=-1), "3NN"),
-        LocalEstimator(RandomForestRegressor(n_jobs=-1), "RF")
+        LocalEstimator(RandomForestRegressor(n_jobs=-1), "RF"),
     ]
 
     # naive ensemble object
@@ -137,4 +151,3 @@ if __name__ == "__main__":
 
     # evaluation
     print(f"MAE : {abs(ne_preds-y_test).sum(axis=-1).mean():.2f}")
-    

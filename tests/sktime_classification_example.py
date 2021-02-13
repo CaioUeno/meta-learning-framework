@@ -146,11 +146,7 @@ class LocalClassifier(BaseModel):
     """
 
     def __init__(self, model, name: str):
-        self.model = model
-        self.name = name
-        self.classes_ = (
-            []
-        )  # this attribute is necessary if you are going to use classification+score
+        super().__init__(model, name)
 
     def fit(self, X, y):
 
@@ -183,6 +179,10 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
 
     def __init__(self, in_shape, lstm_cells, batch_size=4, epochs=20):
 
+        """
+        Note the model itself is initialized only on fit method.
+        """
+
         self.in_shape = in_shape
         self.lstm_cells = lstm_cells
         self.batch_size = batch_size
@@ -208,7 +208,9 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
             custom_loss = abs_diff + mult
             return custom_loss
 
-        self.meta_clf.compile(optimizer="rmsprop", loss=custom_loss, metrics=["accuracy"])
+        self.meta_clf.compile(
+            optimizer="rmsprop", loss=custom_loss, metrics=["accuracy"]
+        )
 
         X_array = np.array(X["dim_0"].apply(lambda x: x.values).tolist())
 
@@ -294,7 +296,7 @@ if __name__ == "__main__":
         mode,
         multi_label=True,
     )
-    
+
     # fit and predict methods
     mm_framework.fit(X_train, y_train, cv=0.4, dynamic_shrink=True)
     meta_preds = mm_framework.predict(X_test.values)
@@ -304,7 +306,7 @@ if __name__ == "__main__":
     print(classification_report(y_test, meta_preds))
 
     # save time metrics and number of base classifiers used
-    mm_framework.save_time_metrics(
+    mm_framework.save_time_metrics_csv(
         "Univariate_ts/" + dataset_name + "/MetaModel_time_metrics.csv"
     )
     mm_framework.save_base_models_used(
@@ -347,7 +349,7 @@ if __name__ == "__main__":
     print("Naive ensemble report:")
     print(classification_report(y_test, ne_preds))
 
-    ne.save_time_metrics(
+    ne.save_time_metrics_csv(
         "Univariate_ts/" + dataset_name + "/NaiveEnsemble_time_metrics.csv"
     )
 
