@@ -7,7 +7,7 @@ from types import GeneratorType
 import warnings
 
 from sklearn.model_selection import cross_val_predict
-from sklearn.preprocessing import LabelBinarizer
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 
 # own library
@@ -532,7 +532,11 @@ class MetaLearningModel(object):
                     time() - self.partial_fit_time["PF-" + self.base_models[idx].name]
                 )
 
-                base_models_predictions[idx] = base_model.predict(X_valid)
+                # decide which prediction method to use
+                if self.task == "classification" and self.mode == "score":
+                    base_models_predictions[idx] = base_model.predict_proba(X_valid)
+                else:
+                    base_models_predictions[idx] = base_model.predict(X_valid)
 
             # instances that were predicted on this step
             X_meta_models = X_valid.copy()
@@ -582,7 +586,12 @@ class MetaLearningModel(object):
                 for idx, base_model in enumerate(self.base_models):
 
                     # prediction step
-                    y_pred = base_model.predict(X_test)
+                    # decide which prediction method to use
+                    if self.task == "classification" and self.mode == "score":
+                        y_pred = base_model.predict_proba(X_test)
+                    else:
+                        y_pred = base_model.predict(X_test)
+
                     y_pred = (
                         np.expand_dims(y_pred, axis=0) if len(y_pred) == 1 else y_pred
                     )
@@ -610,14 +619,14 @@ class MetaLearningModel(object):
 
         elif self.task == "classification" and self.mode == "score":
 
-            lb = LabelBinarizer()
+            ohe = OneHotEncoder(sparse=False)
 
             y_error_meta_models = np.zeros((y_true.shape[0], len(self.base_models)))
 
             # given an error measure function and a selector funtion, select "only" useful base models
             for idx, base_model in enumerate(self.base_models):
                 y_error_meta_models[:, idx] = self.__measure_error(
-                    base_models_predictions[idx], lb.fit_transform(y_true)
+                    base_models_predictions[idx], ohe.fit_transform(y_true.reshape(-1, 1))
                 )
 
             return (X_meta_models, self.__selector(y_error_meta_models))
@@ -806,6 +815,9 @@ class MetaLearningModel(object):
         Returns:
             y_error (np.ndarray): array which contains the error for each instance.
         """
+
+        if y_pred.shape != y_true.shape:
+            raise ValueError(f"Meta Classifier training set: y_true {y_true.shape} and y_pred {y_pred.shape} do not have the same shape.")
 
         y_error = np.zeros((y_pred.shape[0]))
         for idx, (pred, true) in enumerate(zip(y_pred, y_true)):
