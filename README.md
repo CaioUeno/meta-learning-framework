@@ -12,7 +12,6 @@ A framework to apply machine learning on how to combine models (learn to ensembl
   * [Classification - Score](#Classification---Score-Mode)
   * [Regression](#Regression-Score-mode-only)
   * [Forecasting](#Forecasting)
-
 * [Performance](#Performance)
 
 ## Introduction
@@ -34,6 +33,7 @@ You can see more about this meta learning approach on this paper: <https://link.
 * pandas
 * tqdm
 * [sktime](https://github.com/alan-turing-institute/sktime/tree/master/sktime) (optional - test code)
+* [dtw-python](https://github.com/DynamicTimeWarping/dtw-python) (optional - test code)
 * [tensorflow](https://github.com/tensorflow/tensorflow) (optional - test code)
 
 ## Installation
@@ -91,3 +91,36 @@ Run the following commands:
 cd tests/
 python3 forecasting_example.py
 ```
+
+### Performance
+
+#### Classification - Both binary and score
+
+| Sktime Dataset | Naive Ensemble - Accuracy | Binary - Accuracy | Score - Accuracy  | Binary - models used |
+| :-----: | :-: | :-: | :-: | :-: |
+| Ham |  |  | | |
+
+#### Simple regression task
+
+Running the script [sklearn_regression_example.py](https://github.com/CaioUeno/meta-learning-framework/blob/master/tests/sklearn_regression_example.py) using fetch_california_housing dataset the following results were achieved:
+
+| Model                 | MAE    | R <sup>2</sup>  |
+| :-------------------: | :----: | :-------------: |
+| Meta Model            | 0.4678 | 0.6927          |
+| Naive Ensemble        | 0.6681 | 0.4622          |
+| Individual - Linear   | 0.5414 | 0.6047          |
+| Individual - SVR      | 0.8743 | -0.0284         |
+| Individual - 3NN      | 0.8384 | 0.1015          |
+| Individual - AdaBoost | 0.8083 | 0.3669          |
+
+#### Forecasting
+
+Running the script [forecasting_example.py](https://github.com/CaioUeno/meta-learning-framework/blob/master/tests/forecasting_example.py) using a white noise time series:
+
+| Model                      | Mean Absolute Sum Error    | Weighted Absolute Error |
+| :------------------------: | :------------------------: | :---------------------: |
+| Meta Model                 | 0.2554                     | 0.1527                  |
+| Naive Ensemble             | 0.3023                     | 0.1720                  |
+| Individual - Linear        | 0.2516                     | 0.1510                  |
+| Individual - 3NN           | 0.4176                     | 0.2228                  |
+| Individual - Random Forest | 0.2698                     | 0.1589                  |
