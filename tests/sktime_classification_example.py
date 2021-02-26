@@ -14,16 +14,10 @@ from sktime.utils.data_io import load_from_tsfile_to_dataframe
 
 from sktime.classification.dictionary_based import (
     IndividualBOSS,
-    BOSSEnsemble,
-    MUSE,
-    TemporalDictionaryEnsemble,
     IndividualTDE,
     WEASEL,
 )
-from sktime.classification.distance_based import ProximityForest, ProximityTree
-from sktime.classification.frequency_based import RandomIntervalSpectralForest
-from sktime.classification.interval_based import TimeSeriesForest
-from sktime.classification.shapelet_based import ShapeletTransformClassifier
+from sktime.classification.interval_based import RandomIntervalSpectralForest
 
 # sklearn KNeighbors
 from sklearn.neighbors import KNeighborsClassifier
@@ -34,13 +28,15 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import classification_report, accuracy_score
 
 # util function to implement DTW metric
-from scipy.spatial import distance
+# from scipy.spatial import distance
+from dtw import dtw
 
 # tensorflow to build a meta classifier
 from tensorflow.keras.layers import Input, Dense, LSTM
 from tensorflow.keras.models import Model
 import tensorflow.keras.backend as K
 import tensorflow.math as M
+from tensorflow import one_hot
 
 # to read dataset and mode from command line
 import sys
@@ -48,16 +44,16 @@ import sys
 # Base Classifiers
 
 
-class TSKNN_ED(BaseModel):
+class NNEuclideanDistance(BaseModel):
 
     """
     KNeighborsClassifier using Euclidean Distance.
     """
 
-    def __init__(self):
+    def __init__(self, name: str):
 
-        self.model = KNeighborsClassifier(n_neighbors=1, metric="euclidean", n_jobs=-1)
-        self.name = "TSKNN_ED"
+        super().__init__(KNeighborsClassifier(n_neighbors=1, metric="euclidean", n_jobs=-1), name)
+
         self.classes_ = (
             []
         )  # this attribute is necessary if you are going to use classification+score
@@ -84,35 +80,20 @@ class TSKNN_ED(BaseModel):
         return self.model.predict_proba(x[0].values.reshape(1, -1))
 
 
-class TSKNN_DTW(BaseModel):
+class NNDTW(BaseModel):
 
     """
     KNeighborsClassifier using Distance Time Warping (DTW).
     """
 
-    def __init__(self):
+    def __init__(self, name: str):
 
         # DTW function between two time series a and b
         def DTW(a, b):
-            an = a.size
-            bn = b.size
-            w = np.ceil(an * 0.1)
-            pointwise_distance = distance.cdist(a.reshape(-1, 1), b.reshape(-1, 1))
-            cumdist = np.matrix(np.ones((an + 1, bn + 1)) * np.inf)
-            cumdist[0, 0] = 0
-            for ai in range(an):
-                beg_win = int(np.max([0, ai - w]))
-                end_win = int(np.min([ai + w, an]))
-                for bi in range(beg_win, end_win):
-                    minimum_cost = np.min(
-                        [cumdist[ai, bi + 1], cumdist[ai + 1, bi], cumdist[ai, bi]]
-                    )
-                    cumdist[ai + 1, bi + 1] = pointwise_distance[ai, bi] + minimum_cost
-            return cumdist[an, bn]
+            return dtw(a, b, distance_only=True).distance
+        
+        super().__init__(KNeighborsClassifier(n_neighbors=1, metric=DTW, n_jobs=-1), name)
 
-        # define metric arugment as DTW
-        self.model = KNeighborsClassifier(n_neighbors=1, metric=DTW, n_jobs=-1)
-        self.name = "TSKNN_DTW"
         self.classes_ = (
             []
         )  # this attribute is necessary if you are going to use classification+score
@@ -168,16 +149,16 @@ class LocalClassifier(BaseModel):
         return self.model.predict_proba(pd.DataFrame({"dim_0": pd.Series(x)}))[0]
 
 
-# Meta Classifier
+# Meta Classifiers
 
 
-class NeuralNetworkMetaClassifier(MetaClassifier):
+class NeuralNetworkMetaClassifierBinary(MetaClassifier):
 
     """
     Neural network based classifier. It supports a multi-label clasification task.
     """
 
-    def __init__(self, in_shape, lstm_cells, batch_size=4, epochs=20):
+    def __init__(self, in_shape, lstm_cells, threshold=.5, batch_size=4, epochs=10):
 
         """
         Note the model itself is initialized only on fit method.
@@ -185,6 +166,7 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
 
         self.in_shape = in_shape
         self.lstm_cells = lstm_cells
+        self.threshold = threshold
         self.batch_size = batch_size
         self.epochs = epochs
 
@@ -197,7 +179,7 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
             )
         )
         lstm_layer = LSTM(self.lstm_cells)(inputs)
-        out = Dense(y.shape[1], activation="sigmoid")(lstm_layer)
+        out = Dense(y.shape[1], kernel_regularizer="l1", activation="sigmoid")(lstm_layer)
 
         self.meta_clf = Model(inputs=inputs, outputs=out)
 
@@ -206,10 +188,11 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
             abs_diff = K.abs(y_true - y_pred)
             mult = M.multiply(abs_diff, y_pred)
             custom_loss = abs_diff + mult
+
             return custom_loss
 
         self.meta_clf.compile(
-            optimizer="rmsprop", loss=custom_loss, metrics=["accuracy"]
+            optimizer="rmsprop", loss=custom_loss
         )
 
         X_array = np.array(X["dim_0"].apply(lambda x: x.values).tolist())
@@ -225,9 +208,8 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
 
         pred = self.meta_clf.predict(X[0].values.reshape(1, 1, -1))
 
-        # using 0.5 as threshold
-        pred[pred >= 0.5] = 1
-        pred[pred < 0.5] = 0
+        pred[pred >= self.threshold] = 1
+        pred[pred < self.threshold] = 0
 
         return pred
 
@@ -236,11 +218,68 @@ class NeuralNetworkMetaClassifier(MetaClassifier):
         x = x[0].values
         pred = self.meta_clf.predict(x.reshape(1, 1, x.shape[0]))[0]
 
-        # using 0.5 as threshold
-        pred[pred >= 0.5] = 1
-        pred[pred < 0.5] = 0
+        pred[pred >= self.threshold] = 1
+        pred[pred < self.threshold] = 0
 
         return pred
+
+class NeuralNetworkMetaClassifierScore(MetaClassifier):
+
+    """
+    Neural network based classifier. It supports only a multi-class clasification task.
+    """
+
+    def __init__(self, in_shape, lstm_cells, batch_size=4, epochs=10):
+
+        """
+        Note the model itself is initialized only on fit method.
+        """
+
+        self.in_shape = in_shape
+        self.lstm_cells = lstm_cells
+        self.batch_size = batch_size
+        self.epochs = epochs
+
+    def fit(self, X, y):
+
+        y = one_hot(y, depth=len(set(y)))
+
+        inputs = Input(
+            shape=(
+                1,
+                self.in_shape,
+            )
+        )
+        lstm_layer = LSTM(self.lstm_cells, recurrent_regularizer="l1")(inputs)
+        out = Dense(y.shape[1], kernel_regularizer="l1", activation="softmax")(lstm_layer)
+
+        self.meta_clf = Model(inputs=inputs, outputs=out)
+
+        self.meta_clf.compile(
+            optimizer="rmsprop", loss="binary_crossentropy"
+        )
+
+        X_array = np.array(X["dim_0"].apply(lambda x: x.values).tolist())
+
+        self.meta_clf.fit(
+            X_array.reshape(X_array.shape[0], 1, X_array.shape[1]),
+            y,
+            batch_size=self.batch_size,
+            epochs=self.epochs,
+        )
+
+    def predict(self, X):
+
+        pred = self.meta_clf.predict(X[0].values.reshape(1, 1, -1))
+
+        return pred.argmax(axis=1)
+
+    def predict_one(self, x):
+
+        x = x[0].values
+        pred = self.meta_clf.predict(x.reshape(1, 1, x.shape[0]))[0]
+
+        return pred.argmax()
 
 
 if __name__ == "__main__":
@@ -264,29 +303,24 @@ if __name__ == "__main__":
     # list of base classifiers
     bm_list = [
         LocalClassifier(IndividualBOSS(random_state=11), "IndividualBOSS"),
-        LocalClassifier(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
-        LocalClassifier(MUSE(random_state=11), "MUSE"),
-        LocalClassifier(
-            TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"
-        ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
         LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
-        LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
-        LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
         LocalClassifier(
             RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
             "RandomIntervalSpectralForest",
         ),
-        LocalClassifier(
-            TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
-        ),
-        TSKNN_DTW(),
-        TSKNN_ED(),
+        NNDTW("DTW"),
+        NNEuclideanDistance("EuclideanDistance"),
     ]
 
     # meta model initialization
     input_shape = X_train.values[0][0].shape[0]
-    MetaModel = NeuralNetworkMetaClassifier(input_shape, 16)
+
+    if mode == "binary":
+        MetaModel = NeuralNetworkMetaClassifierBinary(input_shape, 4, .75)
+
+    else:
+        MetaModel = NeuralNetworkMetaClassifierScore(input_shape, 4)
 
     # meta learning framework initialization
     mm_framework = MetaLearningModel(
@@ -294,11 +328,11 @@ if __name__ == "__main__":
         bm_list,
         "classification",
         mode,
-        multi_label=True,
+        multi_label=True if mode == "binary" else False,
     )
 
     # fit and predict methods
-    mm_framework.fit(X_train, y_train, cv=0.4, dynamic_shrink=True)
+    mm_framework.fit(X_train, y_train, cv=.3, dynamic_shrink=True)
     meta_preds = mm_framework.predict(X_test.values)
 
     # metrics
@@ -318,24 +352,14 @@ if __name__ == "__main__":
     # reinitialize list of base classifiers
     bm_list = [
         LocalClassifier(IndividualBOSS(random_state=11), "IndividualBOSS"),
-        LocalClassifier(BOSSEnsemble(random_state=11), "BOSSEnsemble"),
-        LocalClassifier(MUSE(random_state=11), "MUSE"),
-        LocalClassifier(
-            TemporalDictionaryEnsemble(random_state=11), "TemporalDictionaryEnsemble"
-        ),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
         LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
-        LocalClassifier(ProximityForest(n_jobs=-1, random_state=11), "ProximityForest"),
-        LocalClassifier(ProximityTree(n_jobs=-1, random_state=11), "ProximityTree"),
         LocalClassifier(
             RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
             "RandomIntervalSpectralForest",
         ),
-        LocalClassifier(
-            TimeSeriesForest(n_jobs=-1, random_state=11), "TimeSeriesForest"
-        ),
-        TSKNN_DTW(),
-        TSKNN_ED(),
+       NNDTW("DTW"),
+        NNEuclideanDistance("EuclideanDistance"),
     ]
 
     # naive ensemble object
