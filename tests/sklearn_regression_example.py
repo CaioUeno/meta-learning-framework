@@ -3,7 +3,7 @@ from sklearn.ensemble import RandomForestClassifier, AdaBoostRegressor
 from sklearn.linear_model import LinearRegression, SGDRegressor
 from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.datasets import load_boston, load_diabetes, fetch_california_housing
+from sklearn.datasets import load_boston, load_diabetes, fetch_california_housing, make_regression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
@@ -48,9 +48,10 @@ class LocalMetaClassifier(MetaClassifier):
 if __name__ == "__main__":
 
     # sklearn regression datasets - choose one
-    X, y = load_boston(return_X_y=True)
+    # X, y = load_boston(return_X_y=True)
     # X, y = load_diabetes(return_X_y=True)
-    # X, y = fetch_california_housing(return_X_y=True)
+    X, y = fetch_california_housing(return_X_y=True)
+    # X, y = make_regression(n_samples=5000, n_features=64, n_informative=16, n_targets=1, noise=0.2, random_state=2)
 
     # split into train and test
     X_train, X_test, y_train, y_test = train_test_split(
@@ -85,9 +86,10 @@ if __name__ == "__main__":
     meta_preds = mm.predict(X_test)
 
     # evaluation
-    print(f"Mean Absolute Error: {mean_absolute_error(y_test, meta_preds)}")
-    print(f"Mean Squared Error: {mean_squared_error(y_test, meta_preds)}")
-    print(f"R2: {r2_score(y_test, meta_preds)}")
+    print("Meta Model evaluation:")
+    print(f"Mean Absolute Error: {mean_absolute_error(y_test, meta_preds):.4f}")
+    print(f"Mean Squared Error: {mean_squared_error(y_test, meta_preds):.4f}")
+    print(f"R2: {r2_score(y_test, meta_preds):.4f}")
 
     # naive ensemble for comparison
 
@@ -109,12 +111,13 @@ if __name__ == "__main__":
     ne_preds = ne.predict(X_test)
 
     # evaluation
-    print(f"Mean Absolute Error: {mean_absolute_error(y_test, ne_preds)}")
-    print(f"Mean Squared Error: {mean_squared_error(y_test, ne_preds)}")
-    print(f"R2: {r2_score(y_test, ne_preds)}")
+    print("Naive Ensemble evaluation:")
+    print(f"Mean Absolute Error: {mean_absolute_error(y_test, ne_preds):.4f}")
+    print(f"Mean Squared Error: {mean_squared_error(y_test, ne_preds):.4f}")
+    print(f"R2: {r2_score(y_test, ne_preds):.4f}")
 
     # evaluate base models individual performance
-    print("individual performance report:")
+    print("individual performance evaluation:")
     individual_preds = ne.individual_predict(X_test)
 
     for model_name in individual_preds.keys():

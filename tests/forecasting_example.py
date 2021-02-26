@@ -47,42 +47,43 @@ class LocalMetaClassifier(MetaClassifier):
 def my_error(pred: np.array, target: np.array) -> float:
 
     """
-    Sum the absolute error given a prediction and a target (both 2-D).
+   Weighted absolute error given a prediction and a target (both 2-D).
 
     Arguments:
         pred (np.ndarray): array which contains one prediction.
         target (np.ndarray): array which contains the target (ground thruth) for the given prediction.
 
     Returns:
-        abs_error (float): sum of absolute error.
+        w_error (float): weighted absolute error.
     """
 
-    error = abs(pred - target).sum()
+    w_error = np.average(abs(pred - target), weights=[.6, .4])
 
-    return error
+    return w_error
 
 
-def my_min_combiner(preds: np.array) -> np.array:
+def my_mean_combiner(preds: np.array) -> np.array:
 
     """
-    Return the lowest value for each output dimension.
+    Return the mean value for each output dimension.
 
     Arguments:
         preds (np.ndarray): array which contains predictions.
 
     Returns:
-        mins (np.ndarray): array which contains lowest value for each output dimension.
+        mins (np.ndarray): array which contains the mean value for each output dimension.
     """
-    mins = np.min(preds, axis=0)
+    means = np.mean(preds, axis=0)
 
-    return mins
+    return means
 
 
 if __name__ == "__main__":
 
-    # create a artificial time series
-    time_series = np.random.uniform(0, 1, 10000)
+    SIZE = 10000
 
+    # create a artificial time series
+    time_series = np.random.random(SIZE) #np.random.uniform(0, 1, SIZE) + 
     WINDOW_SIZE = 25
 
     # for simplicity, use this tensorflow function to structure the time series dataset
@@ -90,7 +91,7 @@ if __name__ == "__main__":
         time_series[:-WINDOW_SIZE],
         time_series[WINDOW_SIZE:],
         sequence_length=WINDOW_SIZE,
-        batch_size=10000 - WINDOW_SIZE,
+        batch_size=SIZE - WINDOW_SIZE,
         shuffle=False,
     )
 
@@ -100,14 +101,14 @@ if __name__ == "__main__":
         X = np.array(batch_of_sequences)
         y = np.array(batch_of_targets)
 
-        # simulating a multi output task
+        # simulating a multi output task - two values to predict
         y = np.concatenate(
-            [np.expand_dims(y, axis=-1), np.expand_dims(y * 2, axis=-1)], axis=-1
+            [np.expand_dims(y, axis=-1), np.expand_dims(np.roll(y, 1), axis=-1)], axis=-1
         )
 
     # split into train and test sets - easy for time series
-    train_index = 6000
-    X_train, y_train = X[:train_index], y[:train_index]
+    train_index = int(SIZE * .6)
+    X_train, y_train = X[1:train_index], y[1:train_index]
     X_test, y_test = X[train_index:], y[train_index:]
 
     # list of base regressors
@@ -124,14 +125,16 @@ if __name__ == "__main__":
         "regression",
         "score",
         error_measure=my_error,
-        combiner=my_min_combiner,
+        combiner=my_mean_combiner,
     )
 
     mm.fit(X_train, y_train, cv=TimeSeriesSplit().split(X_train))
     meta_preds = mm.predict(X_test)
 
     # evaluation
-    print(f"MAE : {abs(meta_preds-y_test).sum(axis=-1).mean():.2f}")
+    print("Meta Model evaluation:")
+    print(f"Mean Absolute Sum Error : {abs(meta_preds-y_test).sum(axis=1).mean():.4f}")
+    print(f"Weighted Absolute Error : {np.average(abs(meta_preds-y_test), axis=1, weights=[.6, .4]).mean():.4f}")
 
     # naive ensemble for comparison
 
@@ -143,11 +146,23 @@ if __name__ == "__main__":
     ]
 
     # naive ensemble object
-    ne = NaiveEnsemble(bm, "regression", combiner=my_min_combiner)
+    ne = NaiveEnsemble(bm, "regression", combiner=my_mean_combiner)
 
     # fit and predict methods
     ne.fit(X_train, y_train)
     ne_preds = ne.predict(X_test)
 
     # evaluation
-    print(f"MAE : {abs(ne_preds-y_test).sum(axis=-1).mean():.2f}")
+    print("Naive Ensemble evaluation:")
+    print(f"Mean Absolute Sum Error : {abs(ne_preds-y_test).sum(axis=-1).mean():.4f}")
+    print(f"Weighted Absolute Error : {np.average(abs(ne_preds-y_test), axis=1, weights=[.6, .4]).mean():.4f}")
+
+    # evaluate base models individual performance
+    print("individual performance evaluation:")
+    individual_preds = ne.individual_predict(X_test)
+
+    for model_name in individual_preds.keys():
+        
+        print(model_name)
+        print(f"Mean Absolute Sum Error : {abs(individual_preds[model_name]-y_test).sum(axis=-1).mean():.4f}")
+        print(f"Weighted Absolute Error : {np.average(abs(individual_preds[model_name]-y_test), axis=1, weights=[.6, .4]).mean():.4f}")
