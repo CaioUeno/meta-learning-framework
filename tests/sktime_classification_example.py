@@ -52,7 +52,7 @@ class NNEuclideanDistance(BaseModel):
 
     def __init__(self, name: str):
 
-        super().__init__(KNeighborsClassifier(n_neighbors=1, metric="euclidean", n_jobs=-1), name)
+        super().__init__(KNeighborsClassifier(n_neighbors=1, metric="euclidean", n_jobs=5), name)
 
         self.classes_ = (
             []
@@ -92,7 +92,7 @@ class NNDTW(BaseModel):
         def DTW(a, b):
             return dtw(a, b, distance_only=True).distance
         
-        super().__init__(KNeighborsClassifier(n_neighbors=1, metric=DTW, n_jobs=-1), name)
+        super().__init__(KNeighborsClassifier(n_neighbors=1, metric=DTW, n_jobs=5), name)
 
         self.classes_ = (
             []
@@ -304,9 +304,9 @@ if __name__ == "__main__":
     bm_list = [
         LocalClassifier(IndividualBOSS(random_state=11), "IndividualBOSS"),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
-        LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
+        LocalClassifier(WEASEL(n_jobs=5, random_state=11), "WEASEL"),
         LocalClassifier(
-            RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
+            RandomIntervalSpectralForest(n_jobs=5, random_state=11),
             "RandomIntervalSpectralForest",
         ),
         NNDTW("DTW"),
@@ -353,9 +353,9 @@ if __name__ == "__main__":
     bm_list = [
         LocalClassifier(IndividualBOSS(random_state=11), "IndividualBOSS"),
         LocalClassifier(IndividualTDE(random_state=11), "IndividualTDE"),
-        LocalClassifier(WEASEL(n_jobs=-1, random_state=11), "WEASEL"),
+        LocalClassifier(WEASEL(n_jobs=5, random_state=11), "WEASEL"),
         LocalClassifier(
-            RandomIntervalSpectralForest(n_jobs=-1, random_state=11),
+            RandomIntervalSpectralForest(n_jobs=5, random_state=11),
             "RandomIntervalSpectralForest",
         ),
        NNDTW("DTW"),
