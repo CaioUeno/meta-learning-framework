@@ -44,6 +44,13 @@ Simply run:
 pip install meta_learning_framework
 ```
 
+You can also clone the repository and run:
+
+```bash
+cd meta-learning-framework/
+pip install .
+```
+
 ## Examples
 
 This section presents how to execute some test codes for you to better understand how this framework is supposed to work.
@@ -92,17 +99,21 @@ cd tests/
 python3 forecasting_example.py
 ```
 
-### Performance
+## Performance
 
-#### Classification - Both binary and score
+### Classification - Both binary and score
 
-| Sktime Dataset | Naive Ensemble - Accuracy | Binary - Accuracy | Score - Accuracy  | Binary - models used |
-| :-----: | :-: | :-: | :-: | :-: |
-| Ham |  |  | | |
+| Sktime Dataset  | Naive Ensemble - Accuracy | Binary - Accuracy | Score - Accuracy  | Binary - models used |
+| :-------------: | :-----------------------: | :---------------: | :---------------: | :------------------: |
+| Ham             |                           |                   |                   |                      |
+| PowerCons       | .95                       | .99               | .81               |  2.00                |
+| MoteStrain      | .94                       | .94               | .81               |  0.00                |
+| MedicalImages   | .74                       | .75               | .57               |  0.00                |
+| DistalPhalanxTW | .67                       | .65               | .58               |  0.32                |
 
-#### Simple regression task
+### Simple regression task
 
-Running the script [sklearn_regression_example.py](https://github.com/CaioUeno/meta-learning-framework/blob/master/tests/sklearn_regression_example.py) using fetch_california_housing dataset the following results were achieved:
+Running the script [sklearn_regression_example.py](https://github.com/CaioUeno/meta-learning-framework/blob/master/tests/sklearn_regression_example.py) using **fetch_california_housing** dataset the following results were achieved:
 
 | Model                 | MAE    | R <sup>2</sup>  |
 | :-------------------: | :----: | :-------------: |
@@ -113,7 +124,7 @@ Running the script [sklearn_regression_example.py](https://github.com/CaioUeno/m
 | Individual - 3NN      | 0.8384 | 0.1015          |
 | Individual - AdaBoost | 0.8083 | 0.3669          |
 
-#### Forecasting
+### Forecasting task
 
 Running the script [forecasting_example.py](https://github.com/CaioUeno/meta-learning-framework/blob/master/tests/forecasting_example.py) using a white noise time series:
 

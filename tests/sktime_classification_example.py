@@ -339,7 +339,7 @@ if __name__ == "__main__":
     print("Meta model report:")
     print(classification_report(y_test, meta_preds))
     if mode == "binary":
-        print(f"Mean base models used: {mm_framework.prediction_base_models_used.mean:.2f}")
+        print(f"Mean base models used: {mm_framework.prediction_base_models_used.mean():.2f}")
 
     # save time metrics and number of base classifiers used
     mm_framework.save_time_metrics_csv(
