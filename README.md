@@ -103,13 +103,16 @@ python3 forecasting_example.py
 
 ### Classification - Both binary and score
 
-| Sktime Dataset  | Naive Ensemble - Accuracy | Binary - Accuracy | Score - Accuracy  | Binary - models used |
-| :-------------: | :-----------------------: | :---------------: | :---------------: | :------------------: |
-| Ham             |                           |                   |                   |                      |
-| PowerCons       | .95                       | .99               | .81               |  2.00                |
-| MoteStrain      | .94                       | .94               | .81               |  0.00                |
-| MedicalImages   | .74                       | .75               | .57               |  0.00                |
-| DistalPhalanxTW | .67                       | .65               | .58               |  0.32                |
+Running the script [sktime_classification_time.py](https://github.com/CaioUeno/meta-learning-framework/blob/master/tests/sktime_classification_example.py) these are the accuracy for a couple of datasets:
+
+|    Sktime Dataset   | Naive Ensemble - Accuracy | Binary - Accuracy | Score - Accuracy  | Binary - models used |
+| :-----------------: | :-----------------------: | :---------------: | :---------------: | :------------------: |
+| Ham                 | **.63**                   | .62               | .56               |  0.66                |
+| PowerCons           | .95                       | **.99**           | .81               |  2.00                |
+| MoteStrain          | .94                       | .94               | .81               |  0.00                |
+| MedicalImages       | .74                       | **.75**           | .57               |  0.00                |
+| DistalPhalanxTW     | **.67**                   | .65               | .58               |  0.32                |
+| InsectWingbeatSound | .61                       | .61               |                   |  0.00                |
 
 ### Simple regression task
 
@@ -128,10 +131,10 @@ Running the script [sklearn_regression_example.py](https://github.com/CaioUeno/m
 
 Running the script [forecasting_example.py](https://github.com/CaioUeno/meta-learning-framework/blob/master/tests/forecasting_example.py) using a white noise time series:
 
-| Model                      | Mean Absolute Sum Error    | Weighted Absolute Error |
-| :------------------------: | :------------------------: | :---------------------: |
-| Meta Model                 | 0.2554                     | 0.1527                  |
-| Naive Ensemble             | 0.3023                     | 0.1720                  |
-| Individual - Linear        | 0.2516                     | 0.1510                  |
-| Individual - 3NN           | 0.4176                     | 0.2228                  |
-| Individual - Random Forest | 0.2698                     | 0.1589                  |
+| Model                      | Mean Absolute Sum Error    | Mean Absolute Weighted Error |
+| :------------------------: | :------------------------: | :--------------------------: |
+| Meta Model                 | 0.2554                     | 0.1527                       |
+| Naive Ensemble             | 0.3023                     | 0.1720                       |
+| Individual - Linear        | 0.2516                     | 0.1510                       |
+| Individual - 3NN           | 0.4176                     | 0.2228                       |
+| Individual - Random Forest | 0.2698                     | 0.1589                       |
