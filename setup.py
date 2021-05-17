@@ -4,8 +4,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="meta_learning_framework_CAIO_UENO", # Replace with your own username
-    version="1.0.0",
+    name="meta-learning-framework",
+    version="0.0.1",
     author="Caio Ueno",
     author_email="caiol.ueno@gmail.com",
     description="A framework to apply a meta learning algorithm at instance level (learn how to ensemble models)",

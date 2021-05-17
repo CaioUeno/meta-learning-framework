@@ -41,7 +41,7 @@ You can see more about this meta learning approach on this paper: <https://link.
 Simply run:
 
 ```bash
-pip install meta_learning_framework
+pip install meta-learning-framework==0.0.1
 ```
 
 You can also clone the repository and run:
