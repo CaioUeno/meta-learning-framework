@@ -5,5 +5,5 @@ from meta_learning_framework.types import Target, Targets
 
 class Combiner(ABC):
     @abstractmethod
-    def combine(self, base_preds: Targets, meta_pred: Targets) -> Target:
+    def combine(self, base_preds: Targets) -> Target:
         pass

@@ -27,10 +27,13 @@ class MetaLearningEnsemble:
         self.selector = selector
 
     def __fit_base_models__(self, X: Instances, y: Targets) -> None:
-        pass
+
+        for bm in self.base_models:
+            bm.fit(X, y)
 
     def __fit_meta_classifier__(self, X: Instances, y: Targets) -> None:
-        pass
+
+        self.meta_classifier.fit(X, y)
 
     def fit(
         self,
@@ -42,19 +45,23 @@ class MetaLearningEnsemble:
 
         meta_y = np.empty(shape=(len(X), len(self.base_models)))
         for idx, bm in enumerate(self.base_models):
-            meta_y[:, idx] = cross_val_predict(bm, X, y, cv)
+            meta_y[:, idx] = cross_val_predict(estimator=bm, X=X, y=y, cv=cv)
 
         self.__fit_base_models__(X, y)
         self.__fit_meta_classifier__(X, meta_y)
 
     def predict(self, X: Instances, verbose: bool = False) -> np.ndarray:
 
+        # make it faster
         predictions = np.empty(len(X))
         for idx, x in enumerate(X):
 
             base_preds = np.asarray([bm.predict([x])[0] for bm in self.base_models])
             meta_pred = self.meta_classifier.predict([x])[0]
 
-            predictions[idx] = self.combiner.combine(base_preds, meta_pred)
+            if meta_pred.sum() > 0:
+                predictions[idx] = self.combiner.combine(base_preds[meta_pred])
+            else:
+                predictions[idx] = self.combiner.combine(base_preds)
 
         return predictions
