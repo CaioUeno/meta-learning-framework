@@ -1,0 +1,2 @@
+class InheritanceError(Exception):
+    pass

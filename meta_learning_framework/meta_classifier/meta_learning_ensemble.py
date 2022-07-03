@@ -1,12 +1,11 @@
-from typing import List, Union
+from typing import Any, List, Union
 
 import numpy as np
-from meta_learning_framework.base_model.base_model import BaseModel
-from meta_learning_framework.meta_classifier.meta_classifier import MetaClassifier
+from meta_learning_framework.base_model import BaseModel
+from meta_learning_framework.exceptions import InheritanceError
+from meta_learning_framework.meta_classifier import MetaClassifier
 from meta_learning_framework.types import Instances, Targets
-from meta_learning_framework.utils.combiner import Combiner
-from meta_learning_framework.utils.error_measurer import ErrorMeasurer
-from meta_learning_framework.utils.selector import Selector
+from meta_learning_framework.utils import Combiner, ErrorMeasurer, Selector
 from sklearn.model_selection import BaseCrossValidator, cross_val_predict
 
 
@@ -20,11 +19,65 @@ class MetaLearningEnsemble:
         selector: Selector,
     ) -> None:
 
+        MetaLearningEnsemble.__validate_params__(
+            meta_classifier, base_models, combiner, error_measurer, selector
+        )
+
         self.meta_classifier = meta_classifier
         self.base_models = base_models
         self.combiner = combiner
         self.error_measurer = error_measurer
         self.selector = selector
+
+    @staticmethod
+    def __validate_params__(
+        meta_classifier: Any,
+        base_models: Any,
+        combiner: Any,
+        error_measurer: Any,
+        selector: Any,
+    ) -> None:
+
+        MetaLearningEnsemble.__validate_meta_classifier__(meta_classifier)
+        MetaLearningEnsemble.__validate_base_models__(base_models)
+
+    def __validate_meta_classifier__(meta_classifier: Any) -> bool:
+
+        parent_classes = [c.__name__ for c in meta_classifier.__class__.__bases__]
+
+        if "MetaClassifier" not in parent_classes:
+            raise InheritanceError(
+                f"Meta classifier variable must inherit from MetaClassifier class."
+            )
+
+    def __validate_base_models__(base_models: Any):
+
+        for bm in base_models:
+
+            parent_classes = [c.__name__ for c in bm.__class__.__bases__]
+
+            if "BaseModel" not in parent_classes:
+                raise InheritanceError(
+                    f"Base model variable must inherit from BaseModel class."
+                )
+
+    def __validate_combiner__(combiner: Any):
+
+        parent_classes = [c.__name__ for c in combiner.__class__.__bases__]
+
+        if "Combiner" not in parent_classes:
+            raise InheritanceError(
+                f"Combiner variable must inherit from Combiner class."
+            )
+
+    def __validate_c__(combiner: Any):
+
+        parent_classes = [c.__name__ for c in combiner.__class__.__bases__]
+
+        if "Combiner" not in parent_classes:
+            raise InheritanceError(
+                f"Combiner variable must inherit from Combiner class."
+            )
 
     def __fit_base_models__(self, X: Instances, y: Targets) -> None:
 
