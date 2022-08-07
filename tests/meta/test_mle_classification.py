@@ -18,6 +18,25 @@ class TestMetaLearningEnsembleClassification:
 
         assert True
 
-    def test_fit_meta_classifier():
+    def test_fit_method(
+        self, mle_classification_init_params, classification_data_sample
+    ):
 
-        assert False
+        X, y = classification_data_sample
+
+        mle = MetaLearningEnsemble(**mle_classification_init_params)
+        mle.fit(X, y)
+
+        assert True
+
+    def test_predict_method(
+        self, mle_classification_init_params, classification_data_sample
+    ):
+
+        X, y = classification_data_sample
+
+        mle = MetaLearningEnsemble(**mle_classification_init_params)
+        mle.fit(X, y)
+        print(mle.predict(X))
+
+        assert True

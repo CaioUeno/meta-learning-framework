@@ -68,7 +68,7 @@ def concrete_classification_error_measurer():
     return EM
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def concrete_classification_selector():
     class SimpleSelector(Selector):
         def select(self, base_errors: Targets) -> Targets:
@@ -126,7 +126,7 @@ def concrete_regression_error_measurer():
     return EM
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def concrete_regression_selector():
     class SimpleSelector(Selector):
         def select(self, base_errors: Targets) -> Targets:
