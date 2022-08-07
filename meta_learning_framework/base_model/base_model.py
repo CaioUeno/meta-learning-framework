@@ -6,6 +6,24 @@ from sklearn.base import BaseEstimator
 
 
 class BaseModel(BaseEstimator, ABC):
+
+    """
+    Abstract class to wrap a base model (classifier or regressor).
+    It implements its interface methods.
+
+    Parameters
+    ----------
+        name : str
+            Model name (required to differentiate models);
+        model : Any
+            Actually machine learning model.
+
+    Raises
+    ---------
+        TypeError
+            If provided name is not from string type.
+    """
+
     def __init__(self, name: str, model: Any = None) -> None:
 
         self._validate_name(name)
@@ -22,8 +40,8 @@ class BaseModel(BaseEstimator, ABC):
 
     @abstractmethod
     def fit(self, X: Instances, y: Targets) -> None:
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def predict(self, X: Instances) -> Targets:
-        pass
+        raise NotImplementedError()
