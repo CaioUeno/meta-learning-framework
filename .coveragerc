@@ -1,0 +1,15 @@
+[run]
+branch=True
+source =
+    meta_learning_framework
+omit =
+    */__init__.py
+
+[report]
+show_missing=True
+exclude_lines =
+    @(abc\.)?abstractmethod
+
+[json]
+output=coverage.json
+pretty_print=True
