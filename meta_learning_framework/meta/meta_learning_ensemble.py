@@ -47,7 +47,7 @@ class MetaLearningEnsemble:
         for bm in self.base_models:
             bm.fit(X, y)
 
-    def __fit_meta_classifier__(self, X: Instances, y: Targets) -> None:
+    def fit_meta_classifier(self, X: Instances, y: Targets) -> None:
 
         self.meta_classifier.fit(X, y)
 
@@ -59,12 +59,21 @@ class MetaLearningEnsemble:
         verbose: bool = False,
     ) -> None:
 
-        meta_y = np.empty(shape=(len(X), len(self.base_models)))
+        cross_val_y = np.empty(shape=(len(X), len(self.base_models)))
         for idx, bm in enumerate(self.base_models):
-            meta_y[:, idx] = cross_val_predict(estimator=bm, X=X, y=y, cv=cv)
+            cross_val_y[:, idx] = cross_val_predict(estimator=bm, X=X, y=y, cv=cv)
 
-        self.__fit_base_models__(X, y)
-        # self.__fit_meta_classifier__(X, meta_y)
+        self.fit_base_models(X, y)
+
+        meta_y = np.empty(shape=(len(X), len(self.base_models)))
+        for idx, (y_true, y_pred) in enumerate(zip(y, cross_val_y)):
+
+            errors = self.error_measurer.measure(y_true, y_pred)
+            print(errors)
+            print(self.selector.select(errors))
+            meta_y[idx, :] = self.selector.select(errors)
+
+        self.fit_meta_classifier(X, meta_y)
 
     def predict(self, X: Instances, verbose: bool = False) -> np.ndarray:
 
@@ -76,7 +85,9 @@ class MetaLearningEnsemble:
             meta_pred = self.meta_classifier.predict([x])[0]
 
             if meta_pred.sum() > 0:
-                predictions[idx] = self.combiner.combine(base_preds[meta_pred])
+                predictions[idx] = self.combiner.combine(
+                    base_preds[meta_pred.astype(bool)]
+                )
             else:
                 predictions[idx] = self.combiner.combine(base_preds)
 
