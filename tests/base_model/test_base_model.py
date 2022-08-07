@@ -27,7 +27,7 @@ class TestBaseModel:
     # this test *is not* implemented because depends on the user's implementation
     # def test_fit_method(self, ...)
 
-    def test_predict_method_outputß(
+    def test_predict_method_output(
         self, concrete_base_model_class, data_sample, diff_tasks_models
     ):
 
