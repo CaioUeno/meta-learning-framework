@@ -6,14 +6,23 @@ from sklearn.base import BaseEstimator
 
 
 class MetaClassifier(BaseEstimator, ABC):
-    def __init__(self, model: Any) -> None:
 
+    """
+    Abstract class to implement the meta classifier interface.
+
+    Parameters
+    ----------
+        model : Any
+            Machine learning model to use as meta classifier.
+    """
+    
+    def __init__(self, model: Any) -> None:
         self.model = model
 
     @abstractmethod
     def fit(self, X: Instances, y: Targets) -> None:
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def predict(self, X: Instances) -> Targets:
-        pass
+        raise NotImplementedError()
